@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../item_detail.dart';
 import '../services/api_service.dart';
+import '../controllers/lookups_controller.dart';
+import '../widgets/loading_indicator.dart';
 import 'dart:convert';
 
 class CommunityScreen extends StatefulWidget {
@@ -209,7 +212,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadItems();
-    _loadLookups();
+    // Справочники к этому моменту уже загружены при старте приложения (см. AppStartupGate в main.dart).
+    final lookups = context.read<LookupsController>();
+    _lookupRarities = lookups.rarities;
+    _lookupTypes = lookups.types;
+    _lookupProperties = lookups.properties;
   }
 
   @override
@@ -720,7 +727,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               if (i == _items.length) {
                 return const Padding(
                   padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(child: LoadingIndicator(size: 60)),
                 );
               }
 

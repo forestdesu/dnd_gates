@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'services/api_service.dart';
+import 'widgets/loading_indicator.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final int itemId;
@@ -97,7 +98,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
       ),
       body: loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: LoadingIndicator())
           : (error != null
               ? Center(child: Text(error!, style: theme.textTheme.bodyMedium))
               : _buildContent(context)),

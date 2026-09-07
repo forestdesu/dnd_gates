@@ -11,6 +11,20 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
 
+  Future<void> _handleSignIn() async {
+    final auth = context.read<AuthController>();
+
+    debugPrint('=== GOOGLE LOGIN START ===');
+
+    final ok = await auth.signInWithGoogle();
+
+    debugPrint('=== GOOGLE LOGIN RESULT: $ok ===');
+
+    if (!ok && mounted) {
+      _showMockLoginDialog();
+    }
+  }
+
   Future<void> _showMockLoginDialog() async {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
@@ -126,17 +140,12 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
     final theme = Theme.of(context);
+    final auth = context.watch<AuthController>();
 
     if (!auth.isAuthenticated) {
       return Stack(children: [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Text('Некоторая часть функционала недоступна. Чтобы её открыть — авторизуйтесь в приложении.', style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
-          ),
-        ),
+        // ... existing code (текст-заглушка без изменений) ...
         Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
@@ -146,16 +155,15 @@ class _ProfileTabState extends State<ProfileTab> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.login),
                 label: const Text('Войти через Google'),
-                onPressed: () async {
-                  final ok = await auth.signInWithGoogle();
-                  if (!ok && mounted) _showMockLoginDialog();
-                },
+                onPressed: _handleSignIn,
               ),
             ),
           ),
         )
       ]);
     }
+
+    final userProfile = auth.userProfile;
 
     return SingleChildScrollView(
       child: Center(

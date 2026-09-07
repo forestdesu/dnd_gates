@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'widgets/loading_indicator.dart';
 import 'auth_controller.dart';
+import 'controllers/lookups_controller.dart';
 import 'screens/community_screen.dart' show CommunityScreen;
 import 'screens/profile_screen.dart' show Item, fetchItemsPage, fetchItemsSearch, fetchLookups, ProfileTab;
 
@@ -12,8 +14,11 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-        create: (_) => AuthController(),
+    return MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthController()),
+          ChangeNotifierProvider(create: (_) => LookupsController()),
+        ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Flutter Demo',
@@ -32,22 +37,74 @@ class MyApp extends StatelessWidget {
                   )
               )
           ),
-          home: const MyHomePage(),
+          home: const AppStartupGate(),
         )
     );
   }
 }
 
+class AppStartupGate extends StatefulWidget {
+  const AppStartupGate({super.key});
+
+  @override
+  State<AppStartupGate> createState() => _AppStartupGateState();
+}
+
+class _AppStartupGateState extends State<AppStartupGate> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bootstrap();
+    });
+  }
+
+  Future<void> _bootstrap() async {
+    final lookups = context.read<LookupsController>();
+    final auth = context.read<AuthController>();
+    await Future.wait([
+      lookups.load(),
+      auth.tryRestoreSession(),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lookups = context.watch<LookupsController>();
+    final auth = context.watch<AuthController>();
+
+    if (lookups.isLoading) {
+      return const Scaffold(body: Center(child: LoadingIndicator()));
+    }
+
+    if (lookups.error != null) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'Сервер временно не работает',
+            style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return MyHomePage(initialIndex: auth.isAuthenticated ? 2 : 3);
+  }
+}
+
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  final int initialIndex;
+
+  const MyHomePage({super.key, this.initialIndex = 2});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
-  int _selectedIndex = 2;
+  late int _selectedIndex = widget.initialIndex;
   void _onNavBarTapped(int index) {
     setState(() {
       _selectedIndex = index;

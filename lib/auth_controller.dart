@@ -1,72 +1,188 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'config/google_config.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'services/api_service.dart';
+
 class AuthController extends ChangeNotifier {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   bool _isAuthenticated = false;
-  Map<String, String> _userProfile = {}; // keys: name, email, photoUrl, registeredAt
+  Map<String, String> _userProfile = {};
+
+  // Инициализация Google Sign-In.
+  // Future нужен, чтобы signInWithGoogle() дождался завершения initialize().
+  Future<void>? _googleInitialization;
 
   bool get isAuthenticated => _isAuthenticated;
   Map<String, String> get userProfile => _userProfile;
 
-  /// Возвращает true при успехе. Если false — вызывающий код должен
-  /// сам показать fallback (например, мок-диалог входа).
+  Future<void> _initializeGoogleSignIn() {
+    return _googleInitialization ??= _googleSignIn.initialize(
+      serverClientId: googleServerClientId,
+    );
+  }
+
   Future<bool> signInWithGoogle() async {
     try {
-      final account = await _googleSignIn.signIn().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Google Sign-In timeout - likely no Play Services');
-        },
-      );
-      if (account == null) return false;
+      // Для google_sign_in 7.x initialize() необходимо выполнить
+      // перед authenticate().
+      await _initializeGoogleSignIn();
 
-      final auth = await account.authentication;
+      debugPrint('Google Sign-In: starting authentication...');
+
+      final GoogleSignInAccount account =
+      await _googleSignIn.authenticate(
+        scopeHint: const [
+          'email',
+          'profile',
+        ],
+      );
+
+      debugPrint('Google Sign-In: account received');
+
+      final GoogleSignInAuthentication auth = account.authentication;
+
+      final String? idToken = auth.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        debugPrint('Google Sign-In: ID token is null or empty');
+        return false;
+      }
+
+      debugPrint('Google Sign-In: ID token received');
+      debugPrint('Google Sign-In: sending token to backend...');
+
+      final response = await ApiService.login(idToken);
+
+      debugPrint(
+        'Backend response: ${response.statusCode} ${response.body}',
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          'Backend login error: '
+              '${response.statusCode} ${response.body}',
+        );
+        return false;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final user = data['user'] as Map<String, dynamic>;
+
+      final token = data['token'] as String;
+
+      await ApiService.saveToken(token);
+
       _isAuthenticated = true;
+
       _userProfile = {
-        'name': account.displayName ?? account.email,
-        'email': account.email,
-        'photoUrl': account.photoUrl ?? '',
+        'id': user['id'].toString(),
+        'name': user['name'] as String? ?? '',
+        'email': user['email'] as String? ?? '',
+        'photoUrl': user['img'] as String? ?? '',
         'registeredAt': DateTime.now().toIso8601String(),
-        'idToken': auth.idToken ?? '',
-        'accessToken': auth.accessToken ?? '',
       };
+
       notifyListeners();
+
+      debugPrint('Google Sign-In: login successful');
+
       return true;
-    } catch (e) {
+    } on GoogleSignInException catch (e) {
+      debugPrint(
+        'Google Sign-In exception: '
+            'code=${e.code}, description=${e.description}',
+      );
+
+      return false;
+    } catch (e, stackTrace) {
       debugPrint('Google Sign-In error: $e');
+      debugPrint('$stackTrace');
+
       return false;
     }
   }
 
-  void loginMock({required String name, required String email, required String photoUrl}) {
+  Future<void> tryRestoreSession() async {
+    final token = await ApiService.getToken();
+
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    try {
+      final response = await ApiService.getMe(token);
+
+      if (response.statusCode != 200) {
+        await ApiService.clearToken();
+        return;
+      }
+
+      final user = jsonDecode(response.body) as Map<String, dynamic>;
+
+      _isAuthenticated = true;
+
+      _userProfile = {
+        'id': user['id'].toString(),
+        'name': user['name'] as String? ?? '',
+        'email': user['email'] as String? ?? '',
+        'photoUrl': user['img'] as String? ?? '',
+        'registeredAt': DateTime.now().toIso8601String(),
+      };
+
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint('Restore session error: $e');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  void loginMock({
+    required String name,
+    required String email,
+    required String photoUrl,
+  }) {
     _isAuthenticated = true;
+
     _userProfile = {
       'name': name,
       'email': email,
       'photoUrl': photoUrl,
       'registeredAt': DateTime.now().toIso8601String(),
     };
+
     notifyListeners();
   }
 
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Google Sign-Out error: $e');
+    }
+
+    await ApiService.clearToken();
+
     _isAuthenticated = false;
     _userProfile = {};
+
     notifyListeners();
   }
 
-  void updateProfile({required String name, required String photoUrl}) {
+  void updateProfile({
+    required String name,
+    required String photoUrl,
+  }) {
     _userProfile = {
       ..._userProfile,
       'name': name,
       'photoUrl': photoUrl,
     };
+
     notifyListeners();
   }
 }
