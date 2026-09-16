@@ -11,6 +11,15 @@ class ProfileTab extends StatefulWidget {
 
 class _ProfileTabState extends State<ProfileTab> {
 
+  static const _profileTextStyle = TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500);
+
+  String _formatDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+  }
+
   Future<void> _handleSignIn() async {
     final auth = context.read<AuthController>();
 
@@ -179,11 +188,11 @@ class _ProfileTabState extends State<ProfileTab> {
                 child: (auth.userProfile['photoUrl'] == null || auth.userProfile['photoUrl']!.isEmpty) ? const Icon(Icons.person, size: 48) : null,
               ),
               const SizedBox(height: 12),
-              Text(auth.userProfile['name'] ?? '', style: theme.textTheme.bodyMedium),
+              Text(auth.userProfile['name'] ?? '', style: _profileTextStyle),
               const SizedBox(height: 6),
-              Text(auth.userProfile['email'] ?? '', style: theme.textTheme.labelSmall),
+              Text(auth.userProfile['email'] ?? '', style: _profileTextStyle),
               const SizedBox(height: 12),
-              Text('Дата регистрации: ${auth.userProfile['registeredAt'] ?? ''}', style: theme.textTheme.labelSmall),
+              Text('Дата регистрации: ${_formatDate(auth.userProfile['registeredAt'])}', style: _profileTextStyle),
               const SizedBox(height: 32),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -215,9 +224,18 @@ class _ProfileTabState extends State<ProfileTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: auth.signOut,
-                child: const Text('Выйти', style: TextStyle(color: Colors.white70)),
+              FractionallySizedBox(
+                widthFactor: 0.9,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: auth.signOut,
+                  child: const Text('Выйти'),
+                ),
               ),
             ],
           ),

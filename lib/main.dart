@@ -4,6 +4,7 @@ import 'widgets/loading_indicator.dart';
 import 'auth_controller.dart';
 import 'controllers/lookups_controller.dart';
 import 'screens/community_screen.dart' show CommunityScreen;
+import 'screens/subscription_screen.dart' show SubscriptionScreen;
 import 'screens/profile_screen.dart' show Item, fetchItemsPage, fetchItemsSearch, fetchLookups, ProfileTab;
 
 void main() {
@@ -38,6 +39,15 @@ class MyApp extends StatelessWidget {
               )
           ),
           home: const AppStartupGate(),
+          builder: (context, child) {
+            return SafeArea(
+              top: false,
+              left: false,
+              right: false,
+              bottom: true,
+              child: child!,
+            );
+          },
         )
     );
   }
@@ -115,43 +125,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Выбираем AppBar в зависимости от текущей вкладки
-    AppBar? currentAppBar;
-    if (_selectedIndex == 0) {
-      // Магазин - простой navbar без поиска
-      currentAppBar = AppBar(
-        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-        title: const Text('Магазин', style: TextStyle(color: Colors.white)),
-        automaticallyImplyLeading: false,
-        elevation: 0,
-      );
-    } else if (_selectedIndex == 1) {
-      // База знаний - персональный navbar
-      currentAppBar = AppBar(
-        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-        title: const Text('База знаний', style: TextStyle(color: Colors.white)),
-        automaticallyImplyLeading: false,
-        elevation: 0,
-      );
-    } else if (_selectedIndex == 2) {
-      // Сообщество - с поиском и фильтрами
-      currentAppBar = AppBar(
-        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-        title: const Text('Сообщество', style: TextStyle(color: Colors.white)),
-        automaticallyImplyLeading: false,
-        elevation: 0,
-      );
-    } else if (_selectedIndex == 3) {
-      // Профиль - без иконок в navbar
-      currentAppBar = AppBar(
-        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-        title: const Text('Профиль', style: TextStyle(color: Colors.white)),
-        automaticallyImplyLeading: false,
-      );
-    }
-
     return Scaffold(
-      appBar: currentAppBar,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavBarTapped,
@@ -166,7 +140,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.folder),
-            label: 'База знаний',
+            label: 'Мои подписки',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.hub),
@@ -178,14 +152,18 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          Center(child: Text('Магазин', style: const TextStyle(color: Colors.white))),
-          Center(child: Text('База знаний', style: const TextStyle(color: Colors.white))),
-          const CommunityScreen(),
-          const ProfileTab(),
-        ],
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            Center(child: Text('Магазин', style: const TextStyle(color: Colors.white))),
+            const SubscriptionScreen(),
+            const CommunityScreen(),
+            const ProfileTab(),
+          ],
+        ),
       ),
     );
   }

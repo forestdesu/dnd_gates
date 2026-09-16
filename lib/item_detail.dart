@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'services/api_service.dart';
 import 'widgets/loading_indicator.dart';
+import 'widgets/info_chip.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final int itemId;
@@ -24,6 +25,71 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  static const Map<String, ({String icon, Color color})> _damageTypeInfo = {
+    'Дробящий': (icon: 'assets/Bludgeoning_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
+    'Колющий': (icon: 'assets/Piercing_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
+    'Рубящий': (icon: 'assets/Slashing_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
+    'Кислотный': (icon: 'assets/Acid_Damage_Icon.webp', color: Color(0xFF73E600)),
+    'Холод': (icon: 'assets/Cold_Damage_Icon.webp', color: Color(0xFF00AEEF)),
+    'Огонь': (icon: 'assets/Fire_Damage_Icon.webp', color: Color(0xFFFF8C00)),
+    'Силовой': (icon: 'assets/Force_Damage_Icon.webp', color: Color(0xFFE65B5B)),
+    'Электрический': (icon: 'assets/Lightning_Damage_Icon.webp', color: Color(0xFF69B7D9)),
+    'Некротический': (icon: 'assets/Necrotic_Damage_Icon.webp', color: Color(0xFF58B77D)),
+    'Ядовитый': (icon: 'assets/Poison_Damage_Icon.webp', color: Color(0xFF72A82E)),
+    'Психический': (icon: 'assets/Psychic_Damage_Icon.webp', color: Color(0xFFD65CCF)),
+    'Излучающий': (icon: 'assets/Radiant_Damage_Icon.webp', color: Color(0xFFE8D96A)),
+    'Звуковой': (icon: 'assets/Thunder_Damage_Icon.webp', color: Color(0xFF9466CC)),
+  };
+
+  Widget _damagePiece(String? damage, String? damageType) {
+    final info = _damageTypeInfo[damageType];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (info != null) ...[
+          Image.asset(info.icon, width: 18, height: 18),
+          const SizedBox(width: 6),
+        ],
+        Text(
+          damage ?? '—',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: info?.color ?? Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _damageInline(List<Map<String, dynamic>> rows) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final sorted = [...rows]..sort((a, b) {
+      final so = (a['sort_order'] as int? ?? 0).compareTo(b['sort_order'] as int? ?? 0);
+      if (so != 0) return so;
+      return (a['damage_type'] as String? ?? '').compareTo(b['damage_type'] as String? ?? '');
+    });
+
+    final children = <Widget>[];
+    int? prevSortOrder;
+    for (final r in sorted) {
+      final so = r['sort_order'] as int?;
+      if (prevSortOrder != null) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            so == prevSortOrder ? '/' : '+',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+        ));
+      }
+      children.add(_damagePiece(r['damage'] as String?, r['damage_type'] as String?));
+      prevSortOrder = so;
+    }
+
+    return Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: children);
   }
 
   Future<void> _load() async {
@@ -164,11 +230,19 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
         // Специальные типы (не начинаются с новой строки после ':'), и остальные поля — как «ключ: значение», значение выровнено по правому краю
         if (specialTypes.isNotEmpty)
-          _keyValueRow(
-            'Специальные типы:',
-            Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.end, children: specialTypes.map((s) => Chip(label: Text(s), backgroundColor: Colors.grey[800], labelStyle: const TextStyle(color: Colors.white))).toList()),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: specialTypes.map((s) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 44, 44, 46),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text('#$s', style: const TextStyle(color: Color(0xFFD9D9D9), fontSize: 13, fontWeight: FontWeight.w600)),
+              )).toList(),
             ),
           ),
 
@@ -184,18 +258,36 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         if (hands.isNotEmpty)
           _maybeSection(
             'Урон оружия',
-            Wrap(spacing: 8, runSpacing: 8, children: hands.map((h) {
-              final damage = h['damage'] as String?;
-              final damageType = h['damage_type'] as String?;
-              final handType = h['hand_type'];
-              final title = (handType == true) ? 'Правая' : 'Левая';
-              return Container(
-                width: (MediaQuery.of(context).size.width - 48) / 2,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: const Color.fromARGB(255, 40, 40, 40), borderRadius: BorderRadius.circular(8)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: theme.textTheme.labelSmall), if (damage != null) Text(damage, style: theme.textTheme.bodyMedium), if (damageType != null) Text(damageType, style: theme.textTheme.labelSmall)]),
+            Builder(builder: (context) {
+              final grouped = <bool, List<Map<String, dynamic>>>{};
+              for (final h in hands) {
+                final key = h['hand_type'] as bool? ?? false;
+                grouped.putIfAbsent(key, () => []).add(h);
+              }
+              final sortedKeys = grouped.keys.toList()..sort((a, b) => a == b ? 0 : (a ? 1 : -1));
+
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: sortedKeys.map((isTwoHanded) {
+                  final rows = grouped[isTwoHanded]!;
+                  final title = isTwoHanded ? 'Двуручный' : 'Одноручный';
+                  return Container(
+                    width: (MediaQuery.of(context).size.width - 48) / 2,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color.fromARGB(255, 40, 40, 40), borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: theme.textTheme.labelSmall),
+                        _damageInline(rows),
+                      ],
+                    ),
+                  );
+                }).toList(),
               );
-            }).toList()),
+            }),
           ),
 
         // Дальность поражения — соберём в одну строку и выровняем значение вправо
@@ -203,10 +295,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           _keyValueRow(
             'Дальность поражения:',
             Text(ranges.map((r) {
-              final type = r['range_type'] as String? ?? '';
               final min = r['min_range']?.toString() ?? '';
               final max = r['max_range']?.toString() ?? '';
-              return '$type: $min - $max';
+              return '$min - $max';
             }).join(', '), style: theme.textTheme.bodyMedium, textAlign: TextAlign.right),
           ),
 
@@ -214,11 +305,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         if (ammos.isNotEmpty)
           _keyValueRow(
             'Урон снаряда:',
-            Text(ammos.map((a) {
-              final dmg = a['damage'] as String? ?? '';
-              final type = a['damage_type'] as String? ?? '';
-              return '$dmg ${type.isNotEmpty ? '($type)' : ''}';
-            }).join(', '), style: theme.textTheme.bodyMedium, textAlign: TextAlign.right),
+            _damageInline(ammos),
           ),
 
         // Доступный боезапас (показываем первые 3 карточки, остальные в раскрываемом списке)
@@ -277,8 +364,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   Widget _ammoCard(Map<String, dynamic> a) {
     final name = a['name'] as String? ?? 'Без имени';
     final icon = a['icon'] as String?;
-    final damage = a['damage'] as String? ?? '';
-    final damageType = a['damage_type'] as String? ?? '';
+    final damages = (a['damages'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
     final min = a['min_range']?.toString() ?? '';
     final max = a['max_range']?.toString() ?? '';
 
@@ -298,7 +384,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
               const SizedBox(height: 4),
-              Text('$damage ${damageType.isNotEmpty ? '($damageType)' : ''}', style: const TextStyle(color: Colors.white70)),
+              _damageInline(damages),
               const SizedBox(height: 4),
               Text('Дальность: ${min.isNotEmpty || max.isNotEmpty ? '$min - $max' : '—'}', style: const TextStyle(color: Colors.white54)),
             ]),

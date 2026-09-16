@@ -4,6 +4,7 @@ import '../item_detail.dart';
 import '../services/api_service.dart';
 import '../controllers/lookups_controller.dart';
 import '../widgets/loading_indicator.dart';
+import '../widgets/info_chip.dart';
 import 'dart:convert';
 
 class CommunityScreen extends StatefulWidget {
@@ -408,243 +409,248 @@ class _CommunityScreenState extends State<CommunityScreen> {
           child: StatefulBuilder(builder: (context, setStateSheet) {
             final headerStyle = const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700);
             return Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('Фильтры', style: headerStyle),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                    onPressed: () => Navigator.of(context).pop(),
+                padding: const EdgeInsets.all(16),
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text('Фильтры', style: headerStyle),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white70),
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                      ]),
+                      const Divider(color: Colors.white12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Свойства', style: headerStyle),
+                        trailing: Text(_filterProperties.isEmpty ? 'Любые' : '${_filterProperties.length} выбрано', style: const TextStyle(color: Colors.white70)),
+                        onTap: () async {
+                          final selected = await showDialog<Set<String>>(
+                            context: context,
+                            builder: (dctx) {
+                              final temp = Set<String>.from(_filterProperties);
+                              return StatefulBuilder(
+                                builder: (ctx, setStateDialog) {
+                                  return AlertDialog(
+                                    backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+                                    title: const Text('Свойства', style: TextStyle(color: Colors.white)),
+                                    content: SizedBox(
+                                      width: double.maxFinite,
+                                      child: ListView(
+                                        shrinkWrap: true,
+                                        children: props.map((p) {
+                                          return CheckboxListTile(
+                                            value: temp.contains(p),
+                                            title: Text(p, style: const TextStyle(color: Colors.white)),
+                                            onChanged: (v) {
+                                              setStateDialog(() {
+                                                if (v == true) {
+                                                  temp.add(p);
+                                                } else {
+                                                  temp.remove(p);
+                                                }
+                                              });
+                                            },
+                                            activeColor: Colors.blueAccent,
+                                            controlAffinity: ListTileControlAffinity.leading,
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(dctx).pop(null), child: const Text('Отмена')),
+                                      TextButton(onPressed: () => Navigator.of(dctx).pop(temp), child: const Text('Ок')),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                          if (selected != null) {
+                            setState(() {
+                              _filterProperties
+                                ..clear()
+                                ..addAll(selected);
+                            });
+                            setStateSheet(() {});
+                          }
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Тип', style: headerStyle),
+                        trailing: Text(_filterType ?? 'Любой', style: const TextStyle(color: Colors.white70)),
+                        onTap: () async {
+                          final options = <String>['Любой'] + types.toList();
+                          final selected = await showDialog<String?>(
+                            context: context,
+                            builder: (dctx) {
+                              return SimpleDialog(
+                                backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+                                title: const Text('Тип', style: TextStyle(color: Colors.white)),
+                                children: options.map((option) {
+                                  return SimpleDialogOption(
+                                    onPressed: () => Navigator.of(dctx).pop(option == 'Любой' ? null : option),
+                                    child: Row(
+                                      children: [
+                                        Radio<String>(
+                                          value: option,
+                                          groupValue: _filterType ?? 'Любой',
+                                          onChanged: (_) => Navigator.of(dctx).pop(option == 'Любой' ? null : option),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            option,
+                                            style: const TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          );
+                          if (selected != _filterType) {
+                            setState(() {
+                              _filterType = selected;
+                            });
+                            setStateSheet(() {});
+                          }
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Редкость', style: headerStyle),
+                        trailing: Text(_filterRarities.isEmpty ? 'Любая' : '${_filterRarities.length} выбрано', style: const TextStyle(color: Colors.white70)),
+                        onTap: () async {
+                          final selected = await showDialog<Set<String>>(
+                            context: context,
+                            builder: (dctx) {
+                              final temp = Set<String>.from(_filterRarities);
+                              return StatefulBuilder(
+                                builder: (ctx, setStateDialog) {
+                                  return AlertDialog(
+                                    backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+                                    title: const Text('Редкость', style: TextStyle(color: Colors.white)),
+                                    content: SizedBox(
+                                      width: double.maxFinite,
+                                      child: ListView(
+                                        shrinkWrap: true,
+                                        children: rarities.map((r) {
+                                          return CheckboxListTile(
+                                            value: temp.contains(r),
+                                            title: Text(r, style: const TextStyle(color: Colors.white)),
+                                            onChanged: (v) {
+                                              setStateDialog(() {
+                                                if (v == true) {
+                                                  temp.add(r);
+                                                } else {
+                                                  temp.remove(r);
+                                                }
+                                              });
+                                            },
+                                            activeColor: Colors.blueAccent,
+                                            controlAffinity: ListTileControlAffinity.leading,
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(dctx).pop(null), child: const Text('Отмена')),
+                                      TextButton(onPressed: () => Navigator.of(dctx).pop(temp), child: const Text('Ок')),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                          if (selected != null) {
+                            setState(() {
+                              _filterRarities
+                                ..clear()
+                                ..addAll(selected);
+                            });
+                            setStateSheet(() {});
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Цена (мед.)', style: headerStyle),
+                      const SizedBox(height: 16),
+                      Row(children: [
+                        Expanded(
+                            child: TextField(
+                              controller: _priceFromController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'От',
+                                hintStyle: const TextStyle(color: Colors.white54),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                filled: false,
+                              ),
+                            )),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: TextField(
+                              controller: _priceToController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'До',
+                                hintStyle: const TextStyle(color: Colors.white54),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
+                                filled: false,
+                              ),
+                            )),
+                      ]),
+                      const SizedBox(height: 16),
+                      Row(children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: TextButton(
+                              style: TextButton.styleFrom(backgroundColor: Colors.transparent, side: const BorderSide(color: Colors.white12)),
+                              onPressed: () {
+                                setState(() {
+                                  _filterProperties.clear();
+                                  _filterType = null;
+                                  _filterRarities.clear();
+                                  _priceFromController.clear();
+                                  _priceToController.clear();
+                                });
+                                _applyFilters();
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Сбросить', style: TextStyle(color: Colors.white70)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                _applyFilters();
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Применить'),
+                            ),
+                          ),
+                        ),
+                      ])
+                    ]),
                   )
                 ]),
-                const Divider(color: Colors.white12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Свойства', style: headerStyle),
-                  trailing: Text(_filterProperties.isEmpty ? 'Любые >' : '${_filterProperties.length} выбрано', style: const TextStyle(color: Colors.white70)),
-                  onTap: () async {
-                    final selected = await showDialog<Set<String>>(
-                      context: context,
-                      builder: (dctx) {
-                        final temp = Set<String>.from(_filterProperties);
-                        return StatefulBuilder(
-                          builder: (ctx, setStateDialog) {
-                            return AlertDialog(
-                              backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-                              title: const Text('Свойства', style: TextStyle(color: Colors.white)),
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                child: ListView(
-                                  shrinkWrap: true,
-                                  children: props.map((p) {
-                                    return CheckboxListTile(
-                                      value: temp.contains(p),
-                                      title: Text(p, style: const TextStyle(color: Colors.white)),
-                                      onChanged: (v) {
-                                        setStateDialog(() {
-                                          if (v == true) {
-                                            temp.add(p);
-                                          } else {
-                                            temp.remove(p);
-                                          }
-                                        });
-                                      },
-                                      activeColor: Colors.blueAccent,
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.of(dctx).pop(null), child: const Text('Отмена')),
-                                TextButton(onPressed: () => Navigator.of(dctx).pop(temp), child: const Text('Ок')),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    );
-                    if (selected != null) {
-                      setState(() {
-                        _filterProperties
-                          ..clear()
-                          ..addAll(selected);
-                      });
-                      setStateSheet(() {});
-                    }
-                  },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Тип', style: headerStyle),
-                  trailing: Text(_filterType ?? 'Любой >', style: const TextStyle(color: Colors.white70)),
-                  onTap: () async {
-                    final options = <String>['Любой'] + types.toList();
-                    final selected = await showDialog<String?>(
-                      context: context,
-                      builder: (dctx) {
-                        return SimpleDialog(
-                          backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-                          title: const Text('Тип', style: TextStyle(color: Colors.white)),
-                          children: options.map((option) {
-                            return SimpleDialogOption(
-                              onPressed: () => Navigator.of(dctx).pop(option == 'Любой' ? null : option),
-                              child: Row(
-                                children: [
-                                  Radio<String>(
-                                    value: option,
-                                    groupValue: _filterType ?? 'Любой',
-                                    onChanged: (_) => Navigator.of(dctx).pop(option == 'Любой' ? null : option),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      option,
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      },
-                    );
-                    if (selected != _filterType) {
-                      setState(() {
-                        _filterType = selected;
-                      });
-                      setStateSheet(() {});
-                    }
-                  },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Редкость', style: headerStyle),
-                  trailing: Text(_filterRarities.isEmpty ? 'Любая >' : '${_filterRarities.length} выбрано', style: const TextStyle(color: Colors.white70)),
-                  onTap: () async {
-                    final selected = await showDialog<Set<String>>(
-                      context: context,
-                      builder: (dctx) {
-                        final temp = Set<String>.from(_filterRarities);
-                        return StatefulBuilder(
-                          builder: (ctx, setStateDialog) {
-                            return AlertDialog(
-                              backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-                              title: const Text('Редкость', style: TextStyle(color: Colors.white)),
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                child: ListView(
-                                  shrinkWrap: true,
-                                  children: rarities.map((r) {
-                                    return CheckboxListTile(
-                                      value: temp.contains(r),
-                                      title: Text(r, style: const TextStyle(color: Colors.white)),
-                                      onChanged: (v) {
-                                        setStateDialog(() {
-                                          if (v == true) {
-                                            temp.add(r);
-                                          } else {
-                                            temp.remove(r);
-                                          }
-                                        });
-                                      },
-                                      activeColor: Colors.blueAccent,
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.of(dctx).pop(null), child: const Text('Отмена')),
-                                TextButton(onPressed: () => Navigator.of(dctx).pop(temp), child: const Text('Ок')),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    );
-                    if (selected != null) {
-                      setState(() {
-                        _filterRarities
-                          ..clear()
-                          ..addAll(selected);
-                      });
-                      setStateSheet(() {});
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Text('Цена (мед.)', style: headerStyle),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                      child: TextField(
-                        controller: _priceFromController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'От',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          filled: false,
-                        ),
-                      )),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: TextField(
-                        controller: _priceToController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'До',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color.fromRGBO(132,132,137,1.0))),
-                          filled: false,
-                        ),
-                      )),
-                ]),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 44,
-                      child: TextButton(
-                        style: TextButton.styleFrom(backgroundColor: Colors.transparent, side: const BorderSide(color: Colors.white12)),
-                        onPressed: () {
-                          setState(() {
-                            _filterProperties.clear();
-                            _filterType = null;
-                            _filterRarities.clear();
-                            _priceFromController.clear();
-                            _priceToController.clear();
-                          });
-                          _applyFilters();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Сбросить', style: TextStyle(color: Colors.white70)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _applyFilters();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Применить'),
-                      ),
-                    ),
-                  ),
-                ])
-              ]),
-            );
+              );
           }),
         );
       },
@@ -750,12 +756,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     clipBehavior: Clip.antiAlias,
                     child: IntrinsicHeight(
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(12),
                             child: SizedBox(
-                              width: 80,
+                              width: 100,
                               height: 200,
                               child: Image.network(
                                 imageUrl,
@@ -795,13 +801,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                     Text('Свойства:', style: theme.textTheme.labelSmall),
                                     const SizedBox(height: 4),
                                     Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
+                                      spacing: 3,
+                                      runSpacing: 2,
                                       children: item.specialTypes
-                                          .map((s) => Chip(
-                                        label: Text(s, style: const TextStyle(color: Colors.white)),
-                                        backgroundColor: Colors.grey[800],
-                                      ))
+                                          .map((s) => InfoChip(s))
                                           .toList(),
                                     ),
                                   ],
