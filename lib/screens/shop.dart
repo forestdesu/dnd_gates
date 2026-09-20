@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'community_screen.dart' show Item;
+import 'community.dart' show Item;
 
 class ShopScreen extends StatefulWidget {
   final List<Item> items;

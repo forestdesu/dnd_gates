@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../auth_controller.dart';
+import '../controllers/auth.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});

@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'config/google_config.dart';
+import '../config/google_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import 'services/api_service.dart';
+import '../services/api_service.dart';
 
 class AuthController extends ChangeNotifier {
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;

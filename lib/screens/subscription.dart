@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/loading_indicator.dart';
-import 'community_screen.dart' show Item, fetchItemsPage;
+import 'community.dart' show Item, fetchItemsPage;
 
 class SubGroup {
   final String id;
@@ -92,6 +92,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
+      Container(
+        color: const Color.fromRGBO(37, 37, 39, 1.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Поиск предметов...',
+            hintStyle: const TextStyle(color: Colors.white54),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            filled: true,
+            fillColor: const Color.fromRGBO(45, 45, 47, 1.0),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            prefixIcon: const Icon(Icons.search, color: Colors.white70),
+          ),
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
       SizedBox(
         height: 48,
         child: ListView.separated(
@@ -108,23 +125,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               onTap: () => _toggleSelect(entry.id),
             );
           },
-        ),
-      ),
-      Container(
-        color: const Color.fromRGBO(37, 37, 39, 1.0),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Поиск предметов...',
-            hintStyle: const TextStyle(color: Colors.white54),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            filled: true,
-            fillColor: const Color.fromRGBO(45, 45, 47, 1.0),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            prefixIcon: const Icon(Icons.search, color: Colors.white70),
-          ),
-          style: const TextStyle(color: Colors.white),
         ),
       ),
       Expanded(

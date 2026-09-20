@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'services/api_service.dart';
-import 'widgets/loading_indicator.dart';
-import 'widgets/info_chip.dart';
+import '../services/api_service.dart';
+import '../widgets/loading_indicator.dart';
+import '../widgets/damage_display.dart';
+import '../widgets/ammo_card.dart';
+import '../utils/price_formatter.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final int itemId;
@@ -27,70 +29,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     _load();
   }
 
-  static const Map<String, ({String icon, Color color})> _damageTypeInfo = {
-    'Дробящий': (icon: 'assets/Bludgeoning_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
-    'Колющий': (icon: 'assets/Piercing_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
-    'Рубящий': (icon: 'assets/Slashing_Damage_Icon.webp', color: Color(0xFFD9D9D9)),
-    'Кислотный': (icon: 'assets/Acid_Damage_Icon.webp', color: Color(0xFF73E600)),
-    'Холод': (icon: 'assets/Cold_Damage_Icon.webp', color: Color(0xFF00AEEF)),
-    'Огонь': (icon: 'assets/Fire_Damage_Icon.webp', color: Color(0xFFFF8C00)),
-    'Силовой': (icon: 'assets/Force_Damage_Icon.webp', color: Color(0xFFE65B5B)),
-    'Электрический': (icon: 'assets/Lightning_Damage_Icon.webp', color: Color(0xFF69B7D9)),
-    'Некротический': (icon: 'assets/Necrotic_Damage_Icon.webp', color: Color(0xFF58B77D)),
-    'Ядовитый': (icon: 'assets/Poison_Damage_Icon.webp', color: Color(0xFF72A82E)),
-    'Психический': (icon: 'assets/Psychic_Damage_Icon.webp', color: Color(0xFFD65CCF)),
-    'Излучающий': (icon: 'assets/Radiant_Damage_Icon.webp', color: Color(0xFFE8D96A)),
-    'Звуковой': (icon: 'assets/Thunder_Damage_Icon.webp', color: Color(0xFF9466CC)),
-  };
 
-  Widget _damagePiece(String? damage, String? damageType) {
-    final info = _damageTypeInfo[damageType];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (info != null) ...[
-          Image.asset(info.icon, width: 18, height: 18),
-          const SizedBox(width: 6),
-        ],
-        Text(
-          damage ?? '—',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: info?.color ?? Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _damageInline(List<Map<String, dynamic>> rows) {
-    if (rows.isEmpty) return const SizedBox.shrink();
-    final sorted = [...rows]..sort((a, b) {
-      final so = (a['sort_order'] as int? ?? 0).compareTo(b['sort_order'] as int? ?? 0);
-      if (so != 0) return so;
-      return (a['damage_type'] as String? ?? '').compareTo(b['damage_type'] as String? ?? '');
-    });
-
-    final children = <Widget>[];
-    int? prevSortOrder;
-    for (final r in sorted) {
-      final so = r['sort_order'] as int?;
-      if (prevSortOrder != null) {
-        children.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            so == prevSortOrder ? '/' : '+',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
-          ),
-        ));
-      }
-      children.add(_damagePiece(r['damage'] as String?, r['damage_type'] as String?));
-      prevSortOrder = so;
-    }
-
-    return Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: children);
-  }
 
   Future<void> _load() async {
     setState(() {
@@ -112,21 +52,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     setState(() {
       loading = false;
     });
-  }
-
-  String _formatPrice(int price) {
-    // Цены приходят в медных. Курс: 100 медных = 10 серебрянных = 1 золотой.
-    // Показываем максимально крупную целую валюту: зол., сер., или мед.
-    if (price <= 0) return 'Бесплатно';
-    if (price % 100 == 0) {
-      final g = price ~/ 100;
-      return '$g зол.';
-    } else if (price % 10 == 0) {
-      final s = price ~/ 10;
-      return '$s серебр.';
-    } else {
-      return '$price мед.';
-    }
   }
 
   Widget _maybeSection(String title, Widget child) {
@@ -219,7 +144,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             ),
             const SizedBox(height: 12),
             // Цена — метка и значение в одной строке, значение выровнено вправо
-            _keyValueRow('Цена:', Text(_formatPrice(price), style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w700))),
+            _keyValueRow('Цена:', Text(price.asPrice, style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w700))),
             // Описание под ценой; описание остаётся слева
             const SizedBox(height: 8),
             Text('Описание', style: theme.textTheme.labelSmall),
@@ -281,7 +206,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(title, style: theme.textTheme.labelSmall),
-                        _damageInline(rows),
+                        DamageInline(rows),
                       ],
                     ),
                   );
@@ -305,20 +230,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         if (ammos.isNotEmpty)
           _keyValueRow(
             'Урон снаряда:',
-            _damageInline(ammos),
+            DamageInline(ammos),
           ),
 
         // Доступный боезапас (показываем первые 3 карточки, остальные в раскрываемом списке)
         if (compatibleAmmos.isNotEmpty) ...[
           _maybeSection('Доступный боезапас', const SizedBox.shrink()),
-          ...compatibleAmmos.take(3).map((a) => _ammoCard(a)),
+          ...compatibleAmmos.take(3).map((a) => AmmoCard(a)),
           if (compatibleAmmos.length > 3) ...[
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
               child: _ammoExpanded
                   ? Column(
-                children: compatibleAmmos.skip(3).map((a) => _ammoCard(a)).toList(),
+                children: compatibleAmmos.skip(3).map((a) => AmmoCard(a)).toList(),
               )
                   : const SizedBox.shrink(),
             ),
@@ -361,38 +286,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     );
   }
 
-  Widget _ammoCard(Map<String, dynamic> a) {
-    final name = a['name'] as String? ?? 'Без имени';
-    final icon = a['icon'] as String?;
-    final damages = (a['damages'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-    final min = a['min_range']?.toString() ?? '';
-    final max = a['max_range']?.toString() ?? '';
-
-    return Card(
-      color: const Color.fromARGB(255, 40, 40, 40),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(children: [
-          Container(
-            width: 56,
-            height: 56,
-            color: Colors.grey[900],
-            child: icon != null ? Image.network(icon, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.broken_image)) : const Icon(Icons.image, color: Colors.grey),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
-              const SizedBox(height: 4),
-              _damageInline(damages),
-              const SizedBox(height: 4),
-              Text('Дальность: ${min.isNotEmpty || max.isNotEmpty ? '$min - $max' : '—'}', style: const TextStyle(color: Colors.white54)),
-            ]),
-          )
-        ]),
-      ),
-    );
-  }
 }
 
 

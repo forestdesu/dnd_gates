@@ -36,6 +36,21 @@ class ApiService {
     return await http.get(Uri.parse('http://${_getApiHost()}/lookups'));
   }
 
+  static Future<http.Response> getMyItems(String token, int page, int pageSize) async {
+    return await http.get(
+      Uri.parse('http://${_getApiHost()}/users/me/items?page=$page&page_size=$pageSize'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> createItem(String token, Map<String, dynamic> body) async {
+    return await http.post(
+      Uri.parse('http://${_getApiHost()}/items'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode(body),
+    );
+  }
+
   static Future<http.Response> getItems(Map<String, List<String>> queryParams) async {
     final parts = <String>[];
     queryParams.forEach((k, list) {

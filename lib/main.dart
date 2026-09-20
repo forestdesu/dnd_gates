@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'widgets/loading_indicator.dart';
-import 'auth_controller.dart';
-import 'controllers/lookups_controller.dart';
-import 'screens/community_screen.dart' show CommunityScreen;
-import 'screens/subscription_screen.dart' show SubscriptionScreen;
-import 'screens/profile_screen.dart' show Item, fetchItemsPage, fetchItemsSearch, fetchLookups, ProfileTab;
+import 'controllers/auth.dart';
+import 'controllers/lookups.dart';
+import 'screens/community.dart' show CommunityScreen;
+import 'screens/subscription.dart' show SubscriptionScreen;
+import 'screens/profile.dart' show Item, fetchItemsPage, fetchItemsSearch, fetchLookups, ProfileTab;
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   runApp(const MyApp());
 }
+
+const _kBackground = Color.fromARGB(255, 31, 31, 31);
+const _kSurface = Color.fromRGBO(37, 37, 39, 1.0);
+const _kAccent = Color(0xFF5B5FEF);
+const _kTextSecondary = Color(0xFF8E8E93);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -23,20 +29,37 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Flutter Demo',
-          theme: ThemeData(scaffoldBackgroundColor: const Color.fromARGB(255, 31, 31, 31),
-              primarySwatch: Colors.red,
-              textTheme: TextTheme(
-                  bodyMedium: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 22
-                  ),
-                  labelSmall: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18
-                  )
-              )
+          theme: ThemeData(
+            useMaterial3: true,
+            scaffoldBackgroundColor: _kBackground,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: _kAccent,
+              brightness: Brightness.dark,
+              surface: _kSurface,
+            ),
+            appBarTheme: AppBarTheme(
+              backgroundColor: _kSurface,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              titleTextStyle: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+              iconTheme: const IconThemeData(color: Colors.white),
+            ),
+            cardColor: _kSurface,
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(backgroundColor: _kAccent, foregroundColor: Colors.white),
+            ),
+            textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+              // Крупные суммы/цифры (было размазано по TextStyle(fontSize: 26, fontWeight: w800))
+              displaySmall: GoogleFonts.inter(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800),
+              // Заголовки секций (было TextStyle(fontSize: 16, fontWeight: w700) в десятке файлов)
+              titleMedium: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+              // Основной текст
+              bodyMedium: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+              // Лейблы полей форм (было TextStyle(color: Colors.white70))
+              labelMedium: GoogleFonts.inter(color: Colors.white70, fontWeight: FontWeight.w500, fontSize: 14),
+              // Вторичный/приглушённый текст (было Colors.white54 / withValues(alpha: 0.6))
+              labelSmall: GoogleFonts.inter(color: _kTextSecondary, fontWeight: FontWeight.w600, fontSize: 14),
+            ),
           ),
           home: const AppStartupGate(),
           builder: (context, child) {
@@ -140,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.folder),
-            label: 'Мои подписки',
+            label: 'Подписки',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.hub),
