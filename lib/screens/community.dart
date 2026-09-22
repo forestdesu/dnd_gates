@@ -649,16 +649,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
         final item = _myItems[i];
         return MyItemCard(
           item: item,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ItemDetailPage(
-                itemId: item.id,
-                initialName: item.name,
-                initialImageUrl: item.icon ?? 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp',
+          onTap: () async {
+            final result = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ItemDetailPage(
+                  itemId: item.id,
+                  initialName: item.name,
+                  initialImageUrl: item.icon ?? 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp',
+                  isOwner: true,
+                ),
               ),
-            ),
-          ),
+            );
+            if (result == true) _loadMyItems();
+          },
         );
       },
     );

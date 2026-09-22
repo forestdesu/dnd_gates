@@ -11,37 +11,106 @@ import '../widgets/image_gallery_picker.dart';
 import '../utils/image_pick_and_crop.dart';
 import 'community.dart' show Item;
 
-class CreateItemScreen extends StatefulWidget {
-  const CreateItemScreen({super.key});
+class EditItemScreen extends StatefulWidget {
+  final int itemId;
+  final Map<String, dynamic> itemData;
+
+  const EditItemScreen({super.key, required this.itemId, required this.itemData});
 
   @override
-  State<CreateItemScreen> createState() => _CreateItemScreenState();
+  State<EditItemScreen> createState() => _EditItemScreenState();
 }
 
-class _CreateItemScreenState extends State<CreateItemScreen> {
+class _EditItemScreenState extends State<EditItemScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController(text: '0');
-  final _weightController = TextEditingController(text: '1');
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _priceController;
+  late final TextEditingController _weightController;
   List<Item> _selectedAmmo = [];
   final List<GalleryImage> _galleryImages = [];
   int? _rarityId;
   bool _saving = false;
   String? _error;
 
-  int? _itemTypeId;
+  late final bool _isWeapon;
+  late final String _typeName;
   final Set<String> _weaponSpecialTypes = {};
-  final List<DamageRowData> _oneHandedRows = [DamageRowData()];
-  final List<DamageRowData> _twoHandedRows = [DamageRowData()];
+  final List<DamageRowData> _oneHandedRows = [];
+  final List<DamageRowData> _twoHandedRows = [];
 
   static const _labelStyle = TextStyle(color: Colors.white70);
   static const _textStyle = TextStyle(color: Colors.white);
 
-  String? _selectedTypeName(List<Map<String, dynamic>> types) {
-    if (_itemTypeId == null) return null;
-    final found = types.firstWhere((t) => t['id'] == _itemTypeId, orElse: () => {});
-    return found['name'] as String?;
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.itemData;
+    _nameController = TextEditingController(text: d['name'] as String? ?? '');
+    _descriptionController = TextEditingController(text: d['description'] as String? ?? '');
+    final images = (d['images'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    _galleryImages.addAll(images.map((i) => GalleryImage.server(id: i['id'] as int, url: i['url'] as String)));
+    _priceController = TextEditingController(text: (d['price'] as int? ?? 0).toString());
+    _weightController = TextEditingController(text: d['weight']?.toString() ?? '');
+
+    final types = (d['types'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    _typeName = types.isNotEmpty ? (types.first['name'] as String? ?? '—') : '—';
+    _isWeapon = _typeName == 'Оружие';
+
+    final lookups = context.read<LookupsController>();
+    final rarityMatch = lookups.rarities.firstWhere((r) => r['name'] == d['rarity'], orElse: () => {});
+    _rarityId = rarityMatch['id'] as int?;
+
+    if (_isWeapon) {
+      final specialTypes = (d['special_types'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+      _weaponSpecialTypes.addAll(specialTypes.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty));
+
+      final hands = (d['hands'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+      _oneHandedRows.addAll(_buildRows(hands, false, lookups));
+      _twoHandedRows.addAll(_buildRows(hands, true, lookups));
+      if (_oneHandedRows.isEmpty) _oneHandedRows.add(DamageRowData());
+      if (_twoHandedRows.isEmpty) _twoHandedRows.add(DamageRowData());
+
+      final compatibleAmmos = (d['compatible_ammos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+      // Item требует rarity/price/types/specialTypes non-null по объявлению класса в community.dart,
+      // но для боеприпасов на этом экране используется только item.id — заглушки безвредны.
+      _selectedAmmo = compatibleAmmos.map((a) => Item(
+        id: a['id'] as int? ?? 0,
+        name: a['name'] as String? ?? '',
+        icon: a['icon'] as String?,
+        rarity: '',
+        price: 0,
+        types: const [],
+        specialTypes: const [],
+      )).toList();
+    }
+  }
+
+  // Группировка: hand_type -> sort_order -> name ASC (порядок уже задан HANDS_QUERY)
+  List<DamageRowData> _buildRows(List<Map<String, dynamic>> hands, bool handType, LookupsController lookups) {
+    final filtered = hands.where((h) => (h['hand_type'] as bool?) == handType).toList();
+    final grouped = <int, List<Map<String, dynamic>>>{};
+    for (final h in filtered) {
+      final so = h['sort_order'] as int? ?? 0;
+      grouped.putIfAbsent(so, () => []).add(h);
+    }
+    final sortedKeys = grouped.keys.toList()..sort();
+    return sortedKeys.map((so) {
+      final rows = grouped[so]!;
+      final ids = <int>{};
+      for (final r in rows) {
+        final match = lookups.damageTypes.firstWhere((t) => t['name'] == r['damage_type'], orElse: () => {});
+        if (match['id'] != null) ids.add(match['id'] as int);
+      }
+      final first = rows.first;
+      final diceMatch = lookups.dice.firstWhere((dd) => dd['name'] == first['dice_name'], orElse: () => {});
+      return DamageRowData(
+        damageTypeIds: ids,
+        diceMulti: first['dice_multi'] as int? ?? 1,
+        diceId: diceMatch['id'] as int?,
+        dmgConst: first['dmg_const'] as int?,
+      );
+    }).toList();
   }
 
   @override
@@ -53,14 +122,13 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final file = await pickAndCropImage(context);
-    if (file == null) return;
-    setState(() => _galleryImages.add(GalleryImage.local(file)));
-  }
-
-  void _removeImage(GalleryImage img) {
-    setState(() => _galleryImages.remove(img));
+  List<Map<String, dynamic>> _serializeDamageRows(List<DamageRowData> rows) {
+    return rows.map((r) => {
+      'damage_type_ids': r.damageTypeIds.toList(),
+      'dice_multi': r.diceMulti,
+      'dice_id': r.diceId,
+      'dmg_const': r.dmgConst,
+    }).toList();
   }
 
   Future<void> _save() async {
@@ -84,8 +152,6 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
 
     try {
       final lookups = context.read<LookupsController>();
-      final selectedTypeName = _selectedTypeName(lookups.types);
-      final isWeapon = selectedTypeName == 'Оружие';
       final hasTwoHanded = _weaponSpecialTypes.contains('Двуручное') || _weaponSpecialTypes.contains('Универсальное');
       final isTwoHandedOnly = _weaponSpecialTypes.contains('Двуручное');
 
@@ -100,25 +166,21 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
         'rarity_id': _rarityId,
         'price': int.tryParse(_priceController.text) ?? 0,
         'weight': double.tryParse(_weightController.text),
-        if (isWeapon) 'item_type_id': _itemTypeId,
-        if (isWeapon) 'special_type_ids': specialTypeIds,
-        if (isWeapon && !isTwoHandedOnly) 'one_handed_damages': _serializeDamageRows(_oneHandedRows),
-        if (isWeapon && hasTwoHanded) 'two_handed_damages': _serializeDamageRows(_twoHandedRows),
-        if (isWeapon) 'ammo_item_ids': _selectedAmmo.map((i) => i.id).toList(),
+        if (_isWeapon) 'special_type_ids': specialTypeIds,
+        if (_isWeapon && !isTwoHandedOnly) 'one_handed_damages': _serializeDamageRows(_oneHandedRows),
+        if (_isWeapon && hasTwoHanded) 'two_handed_damages': _serializeDamageRows(_twoHandedRows),
+        if (_isWeapon) 'ammo_item_ids': _selectedAmmo.map((i) => i.id).toList(),
       };
-      final response = await ApiService.createItem(token, body);
+      final response = await ApiService.updateItem(token, widget.itemId, body);
       if (response.statusCode == 200) {
-        final created = jsonDecode(response.body) as Map<String, dynamic>;
-        final newItemId = created['id'] as int;
-        for (final img in _galleryImages) {
-          if (img.localFile != null) {
-            await ApiService.uploadItemImage(token, newItemId, img.localFile!);
-          }
+        final imageIds = _galleryImages.where((i) => i.id != null).map((i) => i.id!).toList();
+        if (imageIds.isNotEmpty) {
+          await ApiService.reorderItemImages(token, widget.itemId, imageIds);
         }
         if (mounted) Navigator.pop(context, true);
       } else {
-        final data = jsonDecode(response.body) as Map<String, dynamic>?;
-        setState(() => _error = data?['detail']?.toString() ?? 'Ошибка сервера: ${response.statusCode}');
+        final resp = jsonDecode(response.body) as Map<String, dynamic>?;
+        setState(() => _error = resp?['detail']?.toString() ?? 'Ошибка сервера: ${response.statusCode}');
       }
     } catch (e) {
       setState(() => _error = 'Ошибка подключения: $e');
@@ -136,27 +198,41 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _serializeDamageRows(List<DamageRowData> rows) {
-    return rows.map((r) => {
-      'damage_type_ids': r.damageTypeIds.toList(),
-      'dice_multi': r.diceMulti,
-      'dice_id': r.diceId,
-      'dmg_const': r.dmgConst,
-    }).toList();
+  Future<void> _pickImage() async {
+    if (_galleryImages.length >= 5) return;
+    final file = await pickAndCropImage(context);
+    if (file == null) return;
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.uploadItemImage(token, widget.itemId, file);
+    if (response.statusCode == 200 && mounted) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      setState(() => _galleryImages.add(GalleryImage.server(id: data['id'] as int, url: data['url'] as String)));
+    } else if (mounted) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data?['detail']?.toString() ?? 'Ошибка загрузки')));
+    }
+  }
+
+  Future<void> _removeImage(GalleryImage img) async {
+    if (img.id == null) return;
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.deleteItemImage(token, widget.itemId, img.id!);
+    if (response.statusCode == 200 && mounted) {
+      setState(() => _galleryImages.remove(img));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final lookups = context.watch<LookupsController>();
     final rarities = lookups.rarities;
-    final types = lookups.types;
-    final selectedTypeName = _selectedTypeName(types);
-    final isWeapon = selectedTypeName == 'Оружие';
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 31, 31, 31),
       appBar: AppBar(
-        title: const Text('Новая работа'),
+        title: const Text('Редактирование'),
         backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
       ),
       body: Form(
@@ -180,13 +256,10 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
               decoration: _decoration('Описание'),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _itemTypeId,
-              decoration: _decoration('Тип предмета *'),
-              dropdownColor: const Color.fromRGBO(37, 37, 39, 1.0),
-              style: _textStyle,
-              items: types.map((t) => DropdownMenuItem<int>(value: t['id'] as int, child: Text(t['name'] as String? ?? ''))).toList(),
-              onChanged: (v) => setState(() => _itemTypeId = v),
+            // Тип предмета менять нельзя — просто показываем текущее значение
+            InputDecorator(
+              decoration: _decoration('Тип предмета'),
+              child: Text(_typeName, style: const TextStyle(color: Colors.white54)),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
@@ -207,7 +280,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                   style: _textStyle,
                   keyboardType: TextInputType.number,
                   decoration: _decoration('Цена (мед.)'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null, // добавлено
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -217,12 +290,12 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                   style: _textStyle,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: _decoration('Вес'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null, // добавлено
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
                 ),
               ),
             ]),
             const SizedBox(height: 12),
-            if (isWeapon)
+            if (_isWeapon)
               WeaponFieldsSection(
                 allSpecialTypes: lookups.properties,
                 selectedSpecialTypes: _weaponSpecialTypes,
@@ -239,8 +312,6 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                 selectedAmmo: _selectedAmmo,
                 onAmmoChanged: (items) => setState(() => _selectedAmmo = items),
               ),
-            const SizedBox(height: 12),
-
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(color: Colors.redAccent)),
@@ -252,7 +323,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                 onPressed: _saving ? null : _save,
                 child: _saving
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Создать'),
+                    : const Text('Сохранить'),
               ),
             ),
           ]),

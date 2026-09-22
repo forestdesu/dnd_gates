@@ -9,11 +9,14 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   http: ^1.1.0
+  http_parser: ^4.1.2
   google_sign_in: ^7.2.0
   google_fonts: ^6.2.1
   provider: ^6.1.2
   flutter_secure_storage: ^9.0.0
   dotlottie_flutter: ^0.1.7
+  image_picker: ^1.1.2
+  crop_your_image: ^2.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

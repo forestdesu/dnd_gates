@@ -5,13 +5,15 @@ import '../widgets/loading_indicator.dart';
 import '../widgets/damage_display.dart';
 import '../widgets/ammo_card.dart';
 import '../utils/price_formatter.dart';
+import 'edit_item_screen.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final int itemId;
   final String? initialName;
   final String? initialImageUrl;
+  final bool isOwner;
 
-  const ItemDetailPage({super.key, required this.itemId, this.initialName, this.initialImageUrl});
+  const ItemDetailPage({super.key, required this.itemId, this.initialName, this.initialImageUrl, this.isOwner = false});
 
   @override
   State<ItemDetailPage> createState() => _ItemDetailPageState();
@@ -22,15 +24,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   bool loading = true;
   String? error;
   bool _ammoExpanded = false;
+  int _currentImagePage = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
   }
-
-
-
 
   Future<void> _load() async {
     setState(() {
@@ -52,6 +52,52 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     setState(() {
       loading = false;
     });
+  }
+
+  Future<void> _openEdit() async {
+    if (data == null) return;
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => EditItemScreen(itemId: widget.itemId, itemData: data!)),
+    );
+    if (updated == true) _load();
+  }
+
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+        title: const Text('Вы точно хотите удалить этот предмет?', style: TextStyle(color: Colors.white)),
+        actions: [
+          Row(children: [
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Да'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[700]),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Нет'),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.deleteItem(token, widget.itemId);
+    if (response.statusCode == 200 && mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   Widget _maybeSection(String title, Widget child) {
@@ -87,6 +133,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       appBar: AppBar(
         title: Text(widget.initialName ?? 'Предмет'),
         backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+        actions: widget.isOwner
+            ? [
+          IconButton(icon: const Icon(Icons.edit), onPressed: _openEdit),
+          IconButton(icon: const Icon(Icons.delete), onPressed: _confirmDelete),
+        ]
+            : null,
       ),
       body: loading
           ? const Center(child: LoadingIndicator())
@@ -112,7 +164,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final ranges = (d['ranges'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
     final ammos = (d['ammos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
     final compatibleAmmos = (d['compatible_ammos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-
+    final images = (d['images'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -124,28 +176,37 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         // Картинка: высота = ширина экрана, ширина чуть меньше чтобы не терялись пропорции; изображение выровнено по центру и использует BoxFit.fill
         Builder(builder: (context) {
           final screenWidth = MediaQuery.of(context).size.width;
-          final imageHeight = screenWidth; // высота равна ширине экрана
+          final galleryUrls = images.isNotEmpty ? images.map((i) => i['url'] as String).toList() : (icon != null ? [icon] : <String>[]);
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(
-              child: SizedBox(
-                height: imageHeight,
-                child: Container(
+            SizedBox(
+              height: screenWidth,
+              child: galleryUrls.isEmpty
+                  ? Container(color: Colors.grey[900], child: const Center(child: Icon(Icons.image, color: Colors.grey)))
+                  : PageView(
+                scrollDirection: Axis.horizontal,
+                onPageChanged: (i) => setState(() => _currentImagePage = i),
+                children: galleryUrls.map((url) => Container(
                   color: Colors.grey[900],
-                  child: icon != null
-                      ? Image.network(
-                          icon,
-                          fit: BoxFit.fill, // preserve aspect ratio while filling
-                          alignment: Alignment.center,
-                          errorBuilder: (c, e, st) => const Icon(Icons.broken_image),
-                        )
-                      : const Center(child: Icon(Icons.image, color: Colors.grey)),
-                ),
+                  child: Image.network(url, fit: BoxFit.fill, alignment: Alignment.center, errorBuilder: (c, e, st) => const Icon(Icons.broken_image)),
+                )).toList(),
               ),
             ),
+            if (galleryUrls.length > 1) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  for (var i = 0; i < galleryUrls.length; i++)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: i == _currentImagePage ? Colors.red : Colors.white24),
+                    ),
+                ]),
+              ),
+            ],
             const SizedBox(height: 12),
-            // Цена — метка и значение в одной строке, значение выровнено вправо
             _keyValueRow('Цена:', Text(price.asPrice, style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w700))),
-            // Описание под ценой; описание остаётся слева
             const SizedBox(height: 8),
             Text('Описание', style: theme.textTheme.labelSmall),
             const SizedBox(height: 6),

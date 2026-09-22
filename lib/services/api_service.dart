@@ -1,6 +1,23 @@
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+extension _ImageContentType on String {
+  MediaType get imageMediaType {
+    switch (split('.').last.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'webp':
+        return MediaType('image', 'webp');
+      default:
+        return MediaType('image', 'png');
+    }
+  }
+}
+
 
 class ApiService {
   static const _storage = FlutterSecureStorage();
@@ -71,5 +88,44 @@ class ApiService {
       }
     });
     return await http.get(Uri.parse('http://${_getApiHost()}/items/search?${parts.join('&')}'));
+  }
+
+  static Future<http.Response> deleteItem(String token, int itemId) async {
+    return await http.delete(
+      Uri.parse('http://${_getApiHost()}/items/$itemId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> updateItem(String token, int itemId, Map<String, dynamic> body) async {
+    return await http.patch(
+      Uri.parse('http://${_getApiHost()}/items/$itemId'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode(body),
+    );
+  }
+
+  static Future<http.Response> uploadItemImage(String token, int itemId, File file) async {
+    final uri = Uri.parse('http://${_getApiHost()}/items/$itemId/images');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(await http.MultipartFile.fromPath('file', file.path, contentType: file.path.imageMediaType));
+    final streamed = await request.send();
+    return http.Response.fromStream(streamed);
+  }
+
+  static Future<http.Response> deleteItemImage(String token, int itemId, int imageId) async {
+    return await http.delete(
+      Uri.parse('http://${_getApiHost()}/items/$itemId/images/$imageId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> reorderItemImages(String token, int itemId, List<int> imageIds) async {
+    return await http.patch(
+      Uri.parse('http://${_getApiHost()}/items/$itemId/images/reorder'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'image_ids': imageIds}),
+    );
   }
 }
