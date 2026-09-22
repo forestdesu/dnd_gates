@@ -211,6 +211,14 @@ class _EditItemScreenState extends State<EditItemScreen> {
     }
   }
 
+  Future<void> _reorderImages(List<GalleryImage> updated) async {
+    setState(() { _galleryImages..clear()..addAll(updated); });
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final imageIds = updated.map((i) => i.id).whereType<int>().toList();
+    await ApiService.reorderItemImages(token, widget.itemId, imageIds);
+  }
+
   Future<void> _removeImage(GalleryImage img) async {
     if (img.id == null) return;
     final token = await ApiService.getToken();
@@ -237,7 +245,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            ImageGalleryPicker(images: _galleryImages, onAdd: _pickImage, onRemove: _removeImage, onReorder: (u) => setState(() { _galleryImages..clear()..addAll(u); })),
+            ImageGalleryPicker(images: _galleryImages, onAdd: _pickImage, onRemove: _removeImage, onReorder: _reorderImages),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,

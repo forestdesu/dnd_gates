@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../screens/community.dart' show Item, MyItem, statusColors, statusLabels;
 import '../utils/price_formatter.dart';
+import 'item_image.dart';
 import 'info_chip.dart';
 
-const _rarityColors = <String, Color>{
+const rarityColors = <String, Color>{
   'Обычный': Color(0xFFADB5BD),
   'Необычный': Color(0xFF4CD964),
   'Редкий': Color(0xFF4DA3FF),
@@ -13,12 +14,10 @@ const _rarityColors = <String, Color>{
   'Не имеет редкости': Color(0xFF7A8188),
 };
 
-const _varyingGradientColors = <Color>[
+const varyingRarityGradient = <Color>[
   Color(0xFFADB5BD), Color(0xFF4CD964), Color(0xFF4DA3FF),
   Color(0xFFEFE478), Color(0xFFFF5A55), Color(0xFFFF9900),
 ];
-
-const _fallbackImageUrl = 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp';
 
 class ItemNameText extends StatelessWidget {
   final String name;
@@ -31,11 +30,11 @@ class ItemNameText extends StatelessWidget {
   Widget build(BuildContext context) {
     if (rarity == 'Редкость варьируется') {
       return ShaderMask(
-        shaderCallback: (b) => const LinearGradient(colors: _varyingGradientColors).createShader(b),
+        shaderCallback: (b) => const LinearGradient(colors: varyingRarityGradient).createShader(b),
         child: Text(name, style: baseStyle?.copyWith(color: Colors.white)),
       );
     }
-    return Text(name, style: baseStyle?.copyWith(color: _rarityColors[rarity] ?? Colors.white));
+    return Text(name, style: baseStyle?.copyWith(color: rarityColors[rarity] ?? Colors.white));
   }
 }
 
@@ -62,11 +61,7 @@ class PublicItemCard extends StatelessWidget {
                 child: SizedBox(
                   width: 100,
                   height: 200,
-                  child: Image.network(
-                    item.icon ?? _fallbackImageUrl,
-                    fit: BoxFit.fill,
-                    errorBuilder: (c, e, st) => Container(color: Colors.grey[800], child: const Icon(Icons.broken_image, color: Colors.grey)),
-                  ),
+                  child: ItemImage(url: item.icon, fit: BoxFit.fill),
                 ),
               ),
               Expanded(
@@ -113,8 +108,8 @@ class MyItemCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              SizedBox(width: 60, height: 60, child: Image.network(item.icon ?? _fallbackImageUrl, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.broken_image, color: Colors.grey))),
-              const SizedBox(width: 12),
+              SizedBox(width: 60, height: 60, child: ItemImage(url: item.icon, fit: BoxFit.fill)),
+                const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(item.name, style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w600)),

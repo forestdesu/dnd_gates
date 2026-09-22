@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/item_image.dart';
 import 'community.dart' show Item;
 
 class ShopScreen extends StatefulWidget {
@@ -98,7 +99,6 @@ class _ShopScreenState extends State<ShopScreen> {
                     }
 
                     final item = widget.items[i];
-                    final imageUrl = item.icon ?? 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp';
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -116,16 +116,7 @@ class _ShopScreenState extends State<ShopScreen> {
                                   child: SizedBox(
                                     width: 80,
                                     height: 200,
-                                    child: Image.network(
-                                      imageUrl,
-                                      fit: BoxFit.fill,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          color: Colors.grey[800],
-                                          child: const Icon(Icons.broken_image, color: Colors.grey),
-                                        );
-                                      },
-                                    ),
+                                    child: ItemImage(url: item.icon, fit: BoxFit.fill),
                                   ),
                                 ),
                                 Expanded(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'damage_display.dart';
+import 'item_image.dart';
 
 class AmmoCard extends StatelessWidget {
   final Map<String, dynamic> ammo;
@@ -22,8 +23,7 @@ class AmmoCard extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            color: Colors.grey[900],
-            child: icon != null ? Image.network(icon, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.broken_image)) : const Icon(Icons.image, color: Colors.grey),
+            child: ItemImage(url: icon),
           ),
           const SizedBox(width: 8),
           Expanded(

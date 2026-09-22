@@ -100,7 +100,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
         'rarity_id': _rarityId,
         'price': int.tryParse(_priceController.text) ?? 0,
         'weight': double.tryParse(_weightController.text),
-        if (isWeapon) 'item_type_id': _itemTypeId,
+        'item_type_id': _itemTypeId,
         if (isWeapon) 'special_type_ids': specialTypeIds,
         if (isWeapon && !isTwoHandedOnly) 'one_handed_damages': _serializeDamageRows(_oneHandedRows),
         if (isWeapon && hasTwoHanded) 'two_handed_damages': _serializeDamageRows(_twoHandedRows),
@@ -110,12 +110,24 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
       if (response.statusCode == 200) {
         final created = jsonDecode(response.body) as Map<String, dynamic>;
         final newItemId = created['id'] as int;
+        final failedUploads = <String>[];
         for (final img in _galleryImages) {
           if (img.localFile != null) {
-            await ApiService.uploadItemImage(token, newItemId, img.localFile!);
+            final uploadResp = await ApiService.uploadItemImage(token, newItemId, img.localFile!);
+            if (uploadResp.statusCode != 200) {
+              final data = jsonDecode(uploadResp.body) as Map<String, dynamic>?;
+              failedUploads.add(data?['detail']?.toString() ?? 'Ошибка ${uploadResp.statusCode}');
+            }
           }
         }
-        if (mounted) Navigator.pop(context, true);
+        if (mounted) {
+          if (failedUploads.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Предмет создан, но не все изображения загружены: ${failedUploads.join(', ')}')),
+            );
+          }
+          Navigator.pop(context, true);
+        }
       } else {
         final data = jsonDecode(response.body) as Map<String, dynamic>?;
         setState(() => _error = data?['detail']?.toString() ?? 'Ошибка сервера: ${response.statusCode}');

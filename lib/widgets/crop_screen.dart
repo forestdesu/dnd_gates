@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 
 const _kMinCropSide = 300;
+const _kMaxCropSide = 3200;
 
 class CropScreen extends StatefulWidget {
   final Uint8List imageBytes;
@@ -21,11 +22,21 @@ class _CropScreenState extends State<CropScreen> {
   Future<void> _validateAndReturn(Uint8List croppedImage) async {
     final codec = await ui.instantiateImageCodec(croppedImage);
     final frame = await codec.getNextFrame();
-    if (frame.image.width < _kMinCropSide || frame.image.height < _kMinCropSide) {
+    final w = frame.image.width;
+    final h = frame.image.height;
+    if (w < _kMinCropSide || h < _kMinCropSide) {
       if (!mounted) return;
       setState(() => _cropping = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Результат обрезки меньше ${_kMinCropSide}x$_kMinCropSide px — увеличьте область выделения')),
+      );
+      return;
+    }
+    if (w > _kMaxCropSide || h > _kMaxCropSide) {
+      if (!mounted) return;
+      setState(() => _cropping = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Результат обрезки больше ${_kMaxCropSide}x$_kMaxCropSide px — уменьшите область выделения')),
       );
       return;
     }

@@ -652,7 +652,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 builder: (_) => ItemDetailPage(
                   itemId: item.id,
                   initialName: item.name,
-                  initialImageUrl: item.icon ?? 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp',
+                  initialImageUrl: item.icon,
                   isOwner: true,
                 ),
               ),
