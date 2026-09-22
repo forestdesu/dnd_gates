@@ -11,9 +11,6 @@ class AuthController extends ChangeNotifier {
 
   bool _isAuthenticated = false;
   Map<String, String> _userProfile = {};
-
-  // Инициализация Google Sign-In.
-  // Future нужен, чтобы signInWithGoogle() дождался завершения initialize().
   Future<void>? _googleInitialization;
 
   bool get isAuthenticated => _isAuthenticated;
@@ -27,8 +24,6 @@ class AuthController extends ChangeNotifier {
 
   Future<bool> signInWithGoogle() async {
     try {
-      // Для google_sign_in 7.x initialize() необходимо выполнить
-      // перед authenticate().
       await _initializeGoogleSignIn();
 
       debugPrint('Google Sign-In: starting authentication...');

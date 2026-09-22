@@ -154,7 +154,6 @@ class _ProfileTabState extends State<ProfileTab> {
 
     if (!auth.isAuthenticated) {
       return Stack(children: [
-        // ... existing code (текст-заглушка без изменений) ...
         Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
@@ -203,7 +202,6 @@ class _ProfileTabState extends State<ProfileTab> {
                       icon: Icons.add_a_photo,
                       label: 'Выбрать фото',
                       onTap: () {
-                        // TODO: Implement photo selection
                       },
                     ),
                     const SizedBox(width: 20),
@@ -217,7 +215,6 @@ class _ProfileTabState extends State<ProfileTab> {
                       icon: Icons.settings,
                       label: 'Настройки',
                       onTap: () {
-                        // TODO: Implement settings
                       },
                     ),
                   ],

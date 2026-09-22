@@ -9,8 +9,6 @@ class SubGroup {
   SubGroup({required this.id, required this.name, this.isDraft = false});
 }
 
-// ==================== Главный экран вкладки ====================
-
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
 
@@ -21,7 +19,6 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  // Мок-данные групп на время макета
   List<SubGroup> _groups = [
     SubGroup(id: 'g1', name: 'Оружие'),
     SubGroup(id: 'g2', name: 'Броня'),
@@ -77,7 +74,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _selectedGroupId = _selectedGroupId == id ? null : id);
   }
 
-  // база + пользовательские группы; выбранная группа переезжает в начало (обходя базу)
   List<_RowEntry> get _displayRow {
     final base = _RowEntry(id: 'base', name: 'База');
     final userEntries = _groups.map((g) => _RowEntry(id: g.id, name: g.name)).toList();
@@ -198,8 +194,6 @@ class _GroupChip extends StatelessWidget {
   }
 }
 
-// ==================== Экран настройки групп ====================
-
 class GroupSettingsScreen extends StatefulWidget {
   final List<SubGroup> groups;
   const GroupSettingsScreen({super.key, required this.groups});
@@ -249,7 +243,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     });
     controller?.dispose();
     _editControllers.remove(g.id);
-    // TODO: отправить запрос на создание/сохранение группы
   }
 
   Future<void> _confirmDelete(SubGroup g) async {
@@ -281,7 +274,6 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     );
     if (ok == true) {
       setState(() => _groups.removeWhere((e) => e.id == g.id));
-      // TODO: отправить запрос на удаление группы
     }
   }
 

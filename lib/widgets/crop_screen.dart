@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:crop_your_image/crop_your_image.dart';
 
 const _kMinCropSide = 300;
-/// Экран свободного кадрирования изображения (замена image_cropper).
+
 class CropScreen extends StatefulWidget {
   final Uint8List imageBytes;
   const CropScreen({super.key, required this.imageBytes});
@@ -34,8 +34,8 @@ class _CropScreenState extends State<CropScreen> {
 
   void _resetCrop() {
     setState(() {
-      _controller = CropController(); // Новый контроллер
-      _cropKey = UniqueKey(); // Новый ключ
+      _controller = CropController();
+      _cropKey = UniqueKey();
     });
   }
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Переключатель вкладок с анимированным подчёркиванием.
 class TabSwitcher extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;

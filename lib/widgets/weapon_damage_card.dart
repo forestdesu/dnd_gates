@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Одна строка урона: несколько типов урона на один кубик + бонус.
-/// sort_order НЕ хранится здесь — вычисляется по индексу строки в списке при сборке payload.
 class DamageRowData {
   Set<int> damageTypeIds;
   int diceMulti;
@@ -13,14 +11,14 @@ class DamageRowData {
 }
 
 class WeaponDamageCard extends StatelessWidget {
-  final String title; // 'Одноручный' | 'Двухручный'
+  final String title;
   final bool required;
   final List<DamageRowData> rows;
-  final List<Map<String, dynamic>> damageTypes; // LookupsController.damageTypes
-  final List<Map<String, dynamic>> diceOptions;  // LookupsController.dice
+  final List<Map<String, dynamic>> damageTypes;
+  final List<Map<String, dynamic>> diceOptions;
   final VoidCallback onAddRow;
   final ValueChanged<int> onRemoveRow;
-  final VoidCallback onChanged; // модели мутируются по ссылке, этот колбэк просто триггерит setState у родителя
+  final VoidCallback onChanged;
 
   const WeaponDamageCard({
     super.key,
@@ -63,7 +61,7 @@ class WeaponDamageCard extends StatelessWidget {
           child: TextButton.icon(
             onPressed: onAddRow,
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('Добавить строку урона', style: TextStyle(fontSize: 15)), // было default ~13-14
+            label: const Text('Добавить строку урона', style: TextStyle(fontSize: 15)),
           ),
         ),
       ]),
@@ -156,7 +154,7 @@ class _DamageRow extends StatelessWidget {
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(labelText: 'Кол-во', labelStyle: TextStyle(color: Colors.white70)),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательно' : null, // добавлено
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательно' : null,
               onChanged: (v) { row.diceMulti = int.tryParse(v) ?? row.diceMulti; onChanged(); },
             ),
           ),
@@ -166,7 +164,7 @@ class _DamageRow extends StatelessWidget {
             child: DropdownButtonFormField<int>(
               initialValue: row.diceId,
               decoration: const InputDecoration(labelText: 'Кубик', labelStyle: TextStyle(color: Colors.white70)),
-              validator: (v) => v == null ? 'Выберите кубик' : null, // добавлено
+              validator: (v) => v == null ? 'Выберите кубик' : null,
               dropdownColor: const Color.fromRGBO(37, 37, 39, 1.0),
               style: const TextStyle(color: Colors.white),
               items: diceOptions.map((d) => DropdownMenuItem<int>(value: d['id'] as int, child: Text(d['name'] as String? ?? ''))).toList(),

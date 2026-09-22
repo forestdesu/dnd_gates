@@ -6,9 +6,6 @@ import 'ammo_picker.dart';
 
 const _sectionTitle = TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700);
 
-/// Блок формы создания оружия: спец-типы, урон, боезапас.
-/// Состояние (списки строк урона, выбранные типы/боеприпасы) хранит родитель —
-/// этот виджет только рисует UI и дёргает колбэки (как WeaponDamageCard/AmmoPicker).
 class WeaponFieldsSection extends StatelessWidget {
   final List<Map<String, dynamic>> allSpecialTypes;
   final Set<String> selectedSpecialTypes;
@@ -47,7 +44,6 @@ class WeaponFieldsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Единственное место, где считается эта логика — раньше дублировалась и глючила в create_item_screen.
     final hasTwoHanded = selectedSpecialTypes.contains('Двуручное') || selectedSpecialTypes.contains('Универсальное');
     final hasAmmo = selectedSpecialTypes.contains('Боеприпас');
     final isTwoHandedOnly = selectedSpecialTypes.contains('Двуручное');

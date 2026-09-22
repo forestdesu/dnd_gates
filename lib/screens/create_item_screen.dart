@@ -207,7 +207,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                   style: _textStyle,
                   keyboardType: TextInputType.number,
                   decoration: _decoration('Цена (мед.)'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null, // добавлено
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -217,7 +217,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                   style: _textStyle,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: _decoration('Вес'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null, // добавлено
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
                 ),
               ),
             ]),

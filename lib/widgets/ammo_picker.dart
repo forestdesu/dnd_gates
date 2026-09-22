@@ -10,7 +10,7 @@ class AmmoPicker extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final result = await Navigator.of(context).push<List<Item>>(
-      MaterialPageRoute(builder: (_) => AmmoPickerScreen(initialSelected: selected)), // было initialSelectedIds: selected.map(...).toSet()
+      MaterialPageRoute(builder: (_) => AmmoPickerScreen(initialSelected: selected)),
     );
     if (result != null) onChanged(result);
   }

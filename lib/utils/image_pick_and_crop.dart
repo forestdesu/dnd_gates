@@ -14,8 +14,6 @@ Future<ui.Image> _decode(Uint8List bytes) async {
   return frame.image;
 }
 
-/// Выбор фото из галереи + свободная обрезка через CropScreen (crop_your_image).
-/// Отклоняет изображения меньше 300x300 и больше 1600x1600 по любой стороне.
 Future<File?> pickAndCropImage(BuildContext context) async {
   final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 90);
   if (picked == null) return null;

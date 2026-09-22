@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Матрица несовместимости специальных типов оружия (weapons_special_types).
-/// Ключ -> набор типов, которые нельзя выбрать одновременно с ключом.
 const Map<String, Set<String>> weaponSpecialTypeConflicts = {
   'Лёгкое': {'Перезарядка', 'Универсальное', 'Боеприпас', 'Двуручное'},
   'Тяжелое': {'Фехтовальное', 'Перезарядка', 'Боеприпас', 'Метательное'},
@@ -20,7 +18,7 @@ const Map<String, Set<String>> weaponSpecialTypeRequires = {
 };
 
 class WeaponSpecialTypesPicker extends StatelessWidget {
-  final List<Map<String, dynamic>> allTypes; // из LookupsController.properties: {'id':.., 'name':..}
+  final List<Map<String, dynamic>> allTypes;
   final Set<String> selected;
   final ValueChanged<Set<String>> onChanged;
 
@@ -98,7 +96,7 @@ class _SpecialTypeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), // было 14/8
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: border)),
-        child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12)), // было без fontSize (default ~14-16)
+        child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12)),
       ),
     );
   }

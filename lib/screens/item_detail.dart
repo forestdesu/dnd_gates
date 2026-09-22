@@ -112,7 +112,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     );
   }
 
-  // Helper: label on the left, value aligned to the right
   Widget _keyValueRow(String label, Widget value) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -157,7 +156,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final rarity = d['rarity'] as String?;
     final weight = d['weight']?.toString();
     final specialTypes = (d['special_types'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
-    // types not used directly in UI for now
     final weaponClasses = (d['weapon_classes'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
     final weaponTypes = (d['weapon_types'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
     final hands = (d['hands'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
@@ -170,10 +168,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Название
         Text(name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white)),
         const SizedBox(height: 12),
-        // Картинка: высота = ширина экрана, ширина чуть меньше чтобы не терялись пропорции; изображение выровнено по центру и использует BoxFit.fill
         Builder(builder: (context) {
           final screenWidth = MediaQuery.of(context).size.width;
           final galleryUrls = images.isNotEmpty ? images.map((i) => i['url'] as String).toList() : (icon != null ? [icon] : <String>[]);
@@ -214,7 +210,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           ]);
         }),
 
-        // Специальные типы (не начинаются с новой строки после ':'), и остальные поля — как «ключ: значение», значение выровнено по правому краю
         if (specialTypes.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -240,7 +235,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
         if (weaponTypes.isNotEmpty) _keyValueRow('Тип оружия:', Text(weaponTypes.join(', '), style: theme.textTheme.bodyMedium)),
 
-        // Урон оружия — карточки в два ряда
         if (hands.isNotEmpty)
           _maybeSection(
             'Урон оружия',
@@ -276,7 +270,6 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             }),
           ),
 
-        // Дальность поражения — соберём в одну строку и выровняем значение вправо
         if (ranges.isNotEmpty)
           _keyValueRow(
             'Дальность поражения:',
@@ -287,14 +280,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             }).join(', '), style: theme.textTheme.bodyMedium, textAlign: TextAlign.right),
           ),
 
-        // Урон снаряда — одно значение, выровнено вправо
         if (ammos.isNotEmpty)
           _keyValueRow(
             'Урон снаряда:',
             DamageInline(ammos),
           ),
 
-        // Доступный боезапас (показываем первые 3 карточки, остальные в раскрываемом списке)
         if (compatibleAmmos.isNotEmpty) ...[
           _maybeSection('Доступный боезапас', const SizedBox.shrink()),
           ...compatibleAmmos.take(3).map((a) => AmmoCard(a)),

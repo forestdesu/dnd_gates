@@ -19,7 +19,6 @@ class CommunityScreen extends StatefulWidget {
   State<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-// Модель для товара
 class Item {
   final int id;
   final String name;
@@ -111,7 +110,6 @@ Future<Map<String, dynamic>> fetchMyItemsPage(String token, int page, {int pageS
   }
 }
 
-// Функция для загрузки lookups (редкости, типы, свойства)
 Future<Map<String, List<Map<String, dynamic>>>> fetchLookups() async {
   try {
     final resp = await ApiService.getLookups();
@@ -159,7 +157,6 @@ Future<Map<String, List<Map<String, dynamic>>>> fetchLookups() async {
   }
 }
 
-// Функция для загрузки товаров с API (пагинация)
 Future<Map<String, dynamic>> fetchItemsPage(
     int page, {
       int pageSize = 30,
@@ -174,7 +171,7 @@ Future<Map<String, dynamic>> fetchItemsPage(
     queryAll['page'] = [page.toString()];
     queryAll['page_size'] = [pageSize.toString()];
     if (rarityIds != null && rarityIds.isNotEmpty) queryAll['rarity_id'] = rarityIds.map((e) => e.toString()).toList();
-    if (itemTypeIds != null && itemTypeIds.isNotEmpty) queryAll['item_type_id'] = itemTypeIds.map((e) => e.toString()).toList(); // было: if (itemTypeId != null) queryAll['item_type_id'] = [itemTypeId.toString()];
+    if (itemTypeIds != null && itemTypeIds.isNotEmpty) queryAll['item_type_id'] = itemTypeIds.map((e) => e.toString()).toList();
     if (specialTypeIds != null && specialTypeIds.isNotEmpty) queryAll['special_type_id'] = specialTypeIds.map((e) => e.toString()).toList();
     if (priceMin != null) queryAll['price_min'] = [priceMin.toString()];
     if (priceMax != null) queryAll['price_max'] = [priceMax.toString()];
@@ -220,7 +217,7 @@ Future<Map<String, dynamic>> fetchItemsSearch(
     queryAll['page'] = [page.toString()];
     queryAll['page_size'] = [pageSize.toString()];
     if (rarityIds != null && rarityIds.isNotEmpty) queryAll['rarity_id'] = rarityIds.map((e) => e.toString()).toList();
-    if (itemTypeIds != null && itemTypeIds.isNotEmpty) queryAll['item_type_id'] = itemTypeIds.map((e) => e.toString()).toList(); // было: if (itemTypeId != null) queryAll['item_type_id'] = [itemTypeId.toString()];
+    if (itemTypeIds != null && itemTypeIds.isNotEmpty) queryAll['item_type_id'] = itemTypeIds.map((e) => e.toString()).toList();
     if (specialTypeIds != null && specialTypeIds.isNotEmpty) queryAll['special_type_id'] = specialTypeIds.map((e) => e.toString()).toList();
     if (priceMin != null) queryAll['price_min'] = [priceMin.toString()];
     if (priceMax != null) queryAll['price_max'] = [priceMax.toString()];
@@ -253,7 +250,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   late ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
 
-  int _tab = 0; // 0 = Публичные работы, 1 = Мои работы
+  int _tab = 0;
   late ScrollController _myScrollController;
   List<MyItem> _myItems = [];
   int _myCurrentPage = 1;
@@ -286,7 +283,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadItems();
-    // Справочники к этому моменту уже загружены при старте приложения (см. AppStartupGate в main.dart).
     final lookups = context.read<LookupsController>();
     _lookupRarities = lookups.rarities;
     _lookupTypes = lookups.types;
@@ -426,7 +422,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         }
         if (ids.isNotEmpty) rarityIds = ids;
       }
-      List<int>? itemTypeIds; // было: int? itemTypeId
+      List<int>? itemTypeIds;
       if (_filterTypes.isNotEmpty) {
         final ids = <int>[];
         for (final name in _filterTypes) {
@@ -451,12 +447,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
       if (searchQuery != null && searchQuery.isNotEmpty) {
         data = await fetchItemsSearch(searchQuery,
             page: page, pageSize: 30,
-            rarityIds: rarityIds, itemTypeIds: itemTypeIds, specialTypeIds: specialTypeIds, // было itemTypeId:
+            rarityIds: rarityIds, itemTypeIds: itemTypeIds, specialTypeIds: specialTypeIds,
             priceMin: priceMin, priceMax: priceMax);
       } else {
         data = await fetchItemsPage(page,
             pageSize: 30,
-            rarityIds: rarityIds, itemTypeIds: itemTypeIds, specialTypeIds: specialTypeIds, // было itemTypeId:
+            rarityIds: rarityIds, itemTypeIds: itemTypeIds, specialTypeIds: specialTypeIds,
             priceMin: priceMin, priceMax: priceMax);
       }
 
@@ -499,7 +495,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     await showFiltersSheet(
       context,
       multiSelectFilters: [
-        MultiSelectFilter(label: 'Тип', options: types, selected: _filterTypes), // было singleSelectFilters
+        MultiSelectFilter(label: 'Тип', options: types, selected: _filterTypes),
         MultiSelectFilter(label: 'Свойства', options: props, selected: _filterProperties),
         MultiSelectFilter(label: 'Редкость', options: rarities, selected: _filterRarities),
       ],
@@ -509,7 +505,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       onReset: () {
         setState(() {
           _filterProperties.clear();
-          _filterTypes.clear(); // было: _filterType = null;
+          _filterTypes.clear();
           _filterRarities.clear();
           _priceFromController.clear();
           _priceToController.clear();

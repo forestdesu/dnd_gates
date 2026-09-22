@@ -72,8 +72,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
       if (_twoHandedRows.isEmpty) _twoHandedRows.add(DamageRowData());
 
       final compatibleAmmos = (d['compatible_ammos'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
-      // Item требует rarity/price/types/specialTypes non-null по объявлению класса в community.dart,
-      // но для боеприпасов на этом экране используется только item.id — заглушки безвредны.
       _selectedAmmo = compatibleAmmos.map((a) => Item(
         id: a['id'] as int? ?? 0,
         name: a['name'] as String? ?? '',
@@ -86,7 +84,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
     }
   }
 
-  // Группировка: hand_type -> sort_order -> name ASC (порядок уже задан HANDS_QUERY)
   List<DamageRowData> _buildRows(List<Map<String, dynamic>> hands, bool handType, LookupsController lookups) {
     final filtered = hands.where((h) => (h['hand_type'] as bool?) == handType).toList();
     final grouped = <int, List<Map<String, dynamic>>>{};
@@ -256,7 +253,6 @@ class _EditItemScreenState extends State<EditItemScreen> {
               decoration: _decoration('Описание'),
             ),
             const SizedBox(height: 12),
-            // Тип предмета менять нельзя — просто показываем текущее значение
             InputDecorator(
               decoration: _decoration('Тип предмета'),
               child: Text(_typeName, style: const TextStyle(color: Colors.white54)),

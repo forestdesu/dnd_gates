@@ -20,7 +20,6 @@ const _varyingGradientColors = <Color>[
 
 const _fallbackImageUrl = 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp';
 
-/// Название итема, окрашенное по редкости (градиент для "варьируется").
 class ItemNameText extends StatelessWidget {
   final String name;
   final String rarity;
@@ -40,7 +39,6 @@ class ItemNameText extends StatelessWidget {
   }
 }
 
-/// Карточка итема в публичном списке сообщества.
 class PublicItemCard extends StatelessWidget {
   final Item item;
   final VoidCallback onTap;
@@ -95,7 +93,6 @@ class PublicItemCard extends StatelessWidget {
   }
 }
 
-/// Карточка итема в списке "Мои работы" (со статусом модерации).
 class MyItemCard extends StatelessWidget {
   final MyItem item;
   final VoidCallback onTap;

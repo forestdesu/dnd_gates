@@ -6,7 +6,7 @@ import '../widgets/loading_indicator.dart';
 import '../widgets/filters_sheet.dart';
 
 class AmmoPickerScreen extends StatefulWidget {
-  final List<Item> initialSelected; // было: Set<int> initialSelectedIds
+  final List<Item> initialSelected;
   const AmmoPickerScreen({super.key, this.initialSelected = const []});
 
   @override
@@ -33,7 +33,7 @@ class _AmmoPickerScreenState extends State<AmmoPickerScreen> {
   String? _error;
 
   int? _ammoTypeId;
-  final Map<int, Item> _selected = {}; // id -> Item, чтобы вернуть полные объекты
+  final Map<int, Item> _selected = {};
 
   @override
   void initState() {
@@ -187,8 +187,8 @@ class _AmmoPickerScreenState extends State<AmmoPickerScreen> {
                 ),
               ),
             ),
-            IconButton(iconSize: 28, icon: const Icon(Icons.filter_list), color: Colors.white, onPressed: _openFilters, tooltip: 'Фильтры'), // восстановлено
-            if (_selected.isNotEmpty) // было > 1, теперь isNotEmpty
+            IconButton(iconSize: 28, icon: const Icon(Icons.filter_list), color: Colors.white, onPressed: _openFilters, tooltip: 'Фильтры'),
+            if (_selected.isNotEmpty)
               IconButton(iconSize: 26, icon: const Icon(Icons.clear_all), color: Colors.white70, onPressed: () => setState(_selected.clear), tooltip: 'Сбросить выбор'),
           ]),
         ),

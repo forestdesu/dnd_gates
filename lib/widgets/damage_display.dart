@@ -8,7 +8,6 @@ String _formatDamage(int? diceMulti, String? diceName, int? dmgConst) {
   return '$dice$sign$dmgConst';
 }
 
-/// Одно значение урона: иконка типа + "2d6+3".
 class DamagePiece extends StatelessWidget {
   final int? diceMulti;
   final String? diceName;
@@ -31,7 +30,6 @@ class DamagePiece extends StatelessWidget {
   }
 }
 
-/// Строка из нескольких DamagePiece, разделённых '/' (одна кость) или '+' (разные кости).
 class DamageInline extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
 
