@@ -14,6 +14,7 @@ class AuthController extends ChangeNotifier {
   Future<void>? _googleInitialization;
 
   bool get isAuthenticated => _isAuthenticated;
+  bool get isStaff => _userProfile['isStaff'] == 'true';
   Map<String, String> get userProfile => _userProfile;
 
   Future<void> _initializeGoogleSignIn() {
@@ -51,6 +52,7 @@ class AuthController extends ChangeNotifier {
       debugPrint('Google Sign-In: sending token to backend...');
 
       final response = await ApiService.login(idToken);
+      debugPrint(jsonDecode(response.body).toString());
 
       debugPrint(
         'Backend response: ${response.statusCode} ${response.body}',
@@ -79,7 +81,8 @@ class AuthController extends ChangeNotifier {
         'name': user['name'] as String? ?? '',
         'email': user['email'] as String? ?? '',
         'photoUrl': user['img'] as String? ?? '',
-        'registeredAt': DateTime.now().toIso8601String(),
+        'isStaff': (user['is_staff'] as bool? ?? false).toString(),
+        'registeredAt': user['created_at'] as String? ?? '',
       };
 
       notifyListeners();
@@ -121,12 +124,14 @@ class AuthController extends ChangeNotifier {
 
       _isAuthenticated = true;
 
+
       _userProfile = {
         'id': user['id'].toString(),
         'name': user['name'] as String? ?? '',
         'email': user['email'] as String? ?? '',
         'photoUrl': user['img'] as String? ?? '',
-        'registeredAt': DateTime.now().toIso8601String(),
+        'isStaff': (user['is_staff'] as bool? ?? false).toString(),
+        'registeredAt': user['created_at'] as String? ?? '',
       };
 
       notifyListeners();

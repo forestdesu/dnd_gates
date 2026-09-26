@@ -128,4 +128,69 @@ class ApiService {
       body: jsonEncode({'image_ids': imageIds}),
     );
   }
+
+  static Future<http.Response> getMyGroups(String token, {int? itemId}) async {
+    final query = itemId != null ? '?item_id=$itemId' : '';
+    return await http.get(
+      Uri.parse('http://${_getApiHost()}/users/me/groups$query'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> addItemToGroups(String token, int itemId, List<int> groupIds) async {
+    return await http.post(
+      Uri.parse('http://${_getApiHost()}/items/$itemId/groups'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'group_ids': groupIds}),
+    );
+  }
+
+  static Future<http.Response> createGroup(String token, String name) async {
+    return await http.post(
+      Uri.parse('http://${_getApiHost()}/users/me/groups'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'name': name}),
+    );
+  }
+
+  static Future<http.Response> renameGroup(String token, int groupId, String name) async {
+    return await http.patch(
+      Uri.parse('http://${_getApiHost()}/users/me/groups/$groupId'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'name': name}),
+    );
+  }
+
+  static Future<http.Response> deleteGroup(String token, int groupId) async {
+    return await http.delete(
+      Uri.parse('http://${_getApiHost()}/users/me/groups/$groupId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> reorderGroups(String token, List<int> groupIds) async {
+    return await http.patch(
+      Uri.parse('http://${_getApiHost()}/users/me/groups/reorder'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+      body: jsonEncode({'group_ids': groupIds}),
+    );
+  }
+
+  static Future<http.Response> getGroupItems(String token, int groupId, int page, int pageSize) async {
+    return await http.get(
+      Uri.parse('http://${_getApiHost()}/groups/$groupId/items?page=$page&page_size=$pageSize'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> removeGroupItem(String token, int groupId, int itemId) async {
+    return await http.delete(
+      Uri.parse('http://${_getApiHost()}/groups/$groupId/items/$itemId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  static Future<http.Response> getUserProfile(int userId, {int page = 1, int pageSize = 100}) async {
+    return await http.get(Uri.parse('http://${_getApiHost()}/users/$userId?page=$page&page_size=$pageSize'));
+  }
 }

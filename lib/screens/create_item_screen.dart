@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import '../controllers/items_update_notifier.dart';
 import '../services/api_service.dart';
 import '../controllers/lookups.dart';
 import '../widgets/weapon_fields_section.dart';
@@ -120,6 +119,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
             }
           }
         }
+        context.read<ItemsUpdateNotifier>().notifyItemsChanged();
         if (mounted) {
           if (failedUploads.isNotEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(

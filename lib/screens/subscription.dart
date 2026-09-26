@@ -1,12 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../widgets/loading_indicator.dart';
-import 'community.dart' show Item, fetchItemsPage;
+import '../services/api_service.dart';
+import 'community.dart' show Item;
+import '../widgets/item_image.dart';
+import 'item_detail.dart';
+import '../controllers/items_update_notifier.dart';
 
-class SubGroup {
-  final String id;
-  String name;
-  bool isDraft;
-  SubGroup({required this.id, required this.name, this.isDraft = false});
+class Group {
+  final int id;
+  final String name;
+  final bool isBase;
+  Group({required this.id, required this.name, required this.isBase});
+
+  factory Group.fromJson(Map<String, dynamic> json) => Group(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    isBase: json['is_base'] as bool? ?? false,
+  );
+}
+
+Future<List<Group>> fetchMyGroups(String token) async {
+  try {
+    final response = await ApiService.getMyGroups(token);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data.map((g) => Group.fromJson(g as Map<String, dynamic>)).toList();
+    } else {
+      throw Exception('Ошибка загрузки групп: ${response.statusCode}');
+    }
+  } on Exception {
+    rethrow;
+  } catch (e) {
+    throw Exception('Ошибка подключения: $e');
+  }
+}
+
+Future<Map<String, dynamic>> fetchGroupItemsPage(String token, int groupId, int page, {int pageSize = 30}) async {
+  try {
+    final response = await ApiService.getGroupItems(token, groupId, page, pageSize);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = (data['items'] as List<dynamic>?)
+          ?.map((item) => Item.fromJson(item as Map<String, dynamic>))
+          .toList() ?? [];
+      return {
+        'items': items,
+        'page': data['page'] as int? ?? page,
+        'total_pages': data['total_pages'] as int? ?? 0,
+      };
+    } else {
+      throw Exception('Ошибка загрузки предметов группы: ${response.statusCode}');
+    }
+  } on Exception {
+    rethrow;
+  } catch (e) {
+    throw Exception('Ошибка подключения: $e');
+  }
 }
 
 class SubscriptionScreen extends StatefulWidget {
@@ -18,13 +69,12 @@ class SubscriptionScreen extends StatefulWidget {
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late final ItemsUpdateNotifier _itemsUpdateNotifier;
 
-  List<SubGroup> _groups = [
-    SubGroup(id: 'g1', name: 'Оружие'),
-    SubGroup(id: 'g2', name: 'Броня'),
-    SubGroup(id: 'g3', name: 'Зелья'),
-  ];
-  String? _selectedGroupId;
+  List<Group> _groups = [];
+  bool _groupsLoading = true;
+  String? _groupsError;
+  int? _selectedGroupId;
 
   List<Item> _items = [];
   bool _isLoading = false;
@@ -33,56 +83,122 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void initState() {
     super.initState();
-    _loadItems();
+    _loadGroups();
+    _itemsUpdateNotifier = context.read<ItemsUpdateNotifier>();
+    _itemsUpdateNotifier.addListener(_onItemsChanged);
   }
 
   @override
   void dispose() {
+    _itemsUpdateNotifier.removeListener(_onItemsChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadItems() async {
+  void _onItemsChanged() {
+    if (_selectedGroupId != null) _selectGroup(_selectedGroupId!, isBase: _isBaseSelected);
+  }
+
+  Future<void> _removeItem(Item item) async {
+    if (_selectedGroupId == null) return;
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    try {
+      final response = await ApiService.removeGroupItem(token, _selectedGroupId!, item.id);
+      if (response.statusCode == 200) {
+        if (mounted) setState(() => _items.removeWhere((i) => i.id == item.id));
+      } else {
+        final data = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data?['detail']?.toString() ?? 'Ошибка удаления: ${response.statusCode}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка подключения: $e')));
+    }
+  }
+
+  Future<void> _openItem(Item item) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItemDetailPage(
+          itemId: item.id,
+          initialName: item.name,
+          initialImageUrl: item.icon,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadGroups() async {
+    final token = await ApiService.getToken();
+    if (token == null) {
+      setState(() {
+        _groupsLoading = false;
+        _groupsError = 'Необходимо войти в аккаунт';
+      });
+      return;
+    }
     setState(() {
-      _isLoading = true;
-      _error = null;
+      _groupsLoading = true;
+      _groupsError = null;
     });
     try {
-      final data = await fetchItemsPage(1, pageSize: 30);
+      final groups = await fetchMyGroups(token);
+      if (!mounted) return;
+      setState(() {
+        _groups = groups;
+        _groupsLoading = false;
+      });
+      if (groups.isNotEmpty) {
+        final base = groups.firstWhere((g) => g.isBase, orElse: () => groups.first);
+        _selectGroup(base.id, isBase: base.isBase);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _groupsError = e.toString();
+        _groupsLoading = false;
+      });
+    }
+  }
+
+  bool _isBaseSelected = false;
+
+  Future<void> _selectGroup(int groupId, {bool isBase = false}) async {
+    setState(() {
+      _selectedGroupId = groupId;
+      _isLoading = true;
+      _isBaseSelected = isBase;
+      _error = null;
+      _items = [];
+    });
+    final token = await ApiService.getToken();
+    if (token == null) {
+      setState(() { _isLoading = false; _error = 'Необходимо войти в аккаунт'; });
+      return;
+    }
+    try {
+      final data = await fetchGroupItemsPage(token, groupId, 1);
+      if (!mounted) return;
       setState(() {
         _items = (data['items'] as List<Item>?) ?? [];
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (!mounted) return;
+      setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
 
   Future<void> _openSettings() async {
-    final updated = await Navigator.of(context).push<List<SubGroup>>(
-      MaterialPageRoute(builder: (_) => GroupSettingsScreen(groups: _groups)),
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const GroupSettingsScreen()),
     );
-    if (updated != null) {
-      setState(() => _groups = updated);
-    }
-  }
-
-  void _toggleSelect(String id) {
-    setState(() => _selectedGroupId = _selectedGroupId == id ? null : id);
-  }
-
-  List<_RowEntry> get _displayRow {
-    final base = _RowEntry(id: 'base', name: 'База');
-    final userEntries = _groups.map((g) => _RowEntry(id: g.id, name: g.name)).toList();
-    var all = [base, ...userEntries];
-    if (_selectedGroupId != null) {
-      final selected = all.firstWhere((e) => e.id == _selectedGroupId);
-      all = [selected, ...all.where((e) => e.id != _selectedGroupId)];
-    }
-    return all;
+    if (changed == true) _loadGroups();
   }
 
   @override
@@ -107,18 +223,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ),
       SizedBox(
         height: 48,
-        child: ListView.separated(
+        child: _groupsLoading
+            ? const Center(child: LoadingIndicator(size: 32))
+            : ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          itemCount: _displayRow.length + 1,
+          itemCount: _groups.length + 1,
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (context, i) {
             if (i == 0) return _GearButton(onTap: _openSettings);
-            final entry = _displayRow[i - 1];
+            final group = _groups[i - 1];
             return _GroupChip(
-              label: entry.name,
-              selected: _selectedGroupId == entry.id,
-              onTap: () => _toggleSelect(entry.id),
+              label: group.name,
+              selected: _selectedGroupId == group.id,
+              onTap: () => _selectGroup(group.id, isBase: group.isBase),
             );
           },
         ),
@@ -126,6 +244,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       Expanded(
         child: _error != null
             ? Center(child: Text('Ошибка: $_error', style: const TextStyle(color: Colors.white)))
+            : (_items.isEmpty && !_isLoading
+            ? const Center(child: Text('В группе пока нет предметов', style: TextStyle(color: Colors.white)))
             : ListView.builder(
           itemCount: _items.length + (_isLoading ? 1 : 0),
           itemBuilder: (context, i) {
@@ -133,21 +253,73 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               return const Padding(padding: EdgeInsets.all(16), child: Center(child: LoadingIndicator(size: 60)));
             }
             final item = _items[i];
-            return ListTile(
-              title: Text(item.name, style: const TextStyle(color: Colors.white)),
-              subtitle: Text(item.rarity, style: const TextStyle(color: Colors.white54)),
+            return _GroupItemCard(
+              item: item,
+              showDelete: !_isBaseSelected,
+              onTap: () => _openItem(item), // НОВОЕ
+              onDelete: () => _removeItem(item),
             );
           },
-        ),
+        )),
       ),
     ]);
   }
 }
 
-class _RowEntry {
-  final String id;
-  final String name;
-  _RowEntry({required this.id, required this.name});
+class _GroupItemCard extends StatelessWidget {
+  final Item item;
+  final bool showDelete;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const _GroupItemCard({required this.item, required this.showDelete, required this.onTap, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        child: Card(
+          color: const Color.fromARGB(255, 40, 40, 40),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            height: 100,
+            child: Row(children: [
+              SizedBox(width: 100, height: double.infinity, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: ItemImage(url: item.icon, fit: BoxFit.fill))),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(item.name, style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 4),
+                            Text('Редкость: ${item.rarity}', style: theme.textTheme.labelSmall),
+                          ]),
+                      if (showDelete) // НОВОЕ: вместо статус-бейджа из MyItemCard
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                          onPressed: onDelete,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _GearButton extends StatelessWidget {
@@ -195,23 +367,25 @@ class _GroupChip extends StatelessWidget {
 }
 
 class GroupSettingsScreen extends StatefulWidget {
-  final List<SubGroup> groups;
-  const GroupSettingsScreen({super.key, required this.groups});
+  const GroupSettingsScreen({super.key});
 
   @override
   State<GroupSettingsScreen> createState() => _GroupSettingsScreenState();
 }
 
 class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
-  late List<SubGroup> _groups;
+  List<Group> _groups = [];
+  bool _loading = true;
+  String? _error;
+  bool _changed = false;
   final _searchController = TextEditingController();
-  String? _editingId;
-  final Map<String, TextEditingController> _editControllers = {};
+  int? _editingGroupId;
+  final Map<int, TextEditingController> _editControllers = {};
 
   @override
   void initState() {
     super.initState();
-    _groups = List<SubGroup>.from(widget.groups);
+    _load();
   }
 
   @override
@@ -223,29 +397,53 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     super.dispose();
   }
 
-  List<SubGroup> get _filtered => _searchController.text.isEmpty
+  Future<void> _load() async {
+    final token = await ApiService.getToken();
+    if (token == null) {
+      setState(() { _loading = false; _error = 'Необходимо войти в аккаунт'; });
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final groups = await fetchMyGroups(token);
+      if (!mounted) return;
+      setState(() { _groups = groups; _loading = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  List<Group> get _filtered => _searchController.text.isEmpty
       ? _groups
       : _groups.where((g) => g.name.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
 
-  void _startEdit(SubGroup g) {
+  void _startEdit(Group g) {
     _editControllers[g.id] = TextEditingController(text: g.name);
-    setState(() => _editingId = g.id);
+    setState(() => _editingGroupId = g.id);
   }
 
-  void _confirmEdit(SubGroup g) {
+  Future<void> _confirmEdit(Group g) async {
     final controller = _editControllers[g.id];
-    setState(() {
-      if (controller != null && controller.text.trim().isNotEmpty) {
-        g.name = controller.text.trim();
-      }
-      g.isDraft = false;
-      _editingId = null;
-    });
+    final newName = controller?.text.trim();
+    setState(() => _editingGroupId = null);
     controller?.dispose();
     _editControllers.remove(g.id);
+    if (newName == null || newName.isEmpty || newName == g.name) return;
+
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.renameGroup(token, g.id, newName);
+    if (response.statusCode == 200 && mounted) {
+      final idx = _groups.indexWhere((e) => e.id == g.id);
+      setState(() {
+        if (idx != -1) _groups[idx] = Group(id: g.id, name: newName, isBase: g.isBase);
+        _changed = true;
+      });
+    }
   }
 
-  Future<void> _confirmDelete(SubGroup g) async {
+  Future<void> _confirmDelete(Group g) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -272,28 +470,52 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         ],
       ),
     );
-    if (ok == true) {
-      setState(() => _groups.removeWhere((e) => e.id == g.id));
+    if (ok != true) return;
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.deleteGroup(token, g.id);
+    if (response.statusCode == 200 && mounted) {
+      setState(() {
+        _groups.removeWhere((e) => e.id == g.id);
+        _changed = true;
+      });
     }
   }
 
-  void _addDraft() {
-    final id = 'draft_${DateTime.now().microsecondsSinceEpoch}';
-    final draft = SubGroup(id: id, name: 'Новая группа', isDraft: true);
-    setState(() => _groups.add(draft));
-    _startEdit(draft);
+  Future<void> _addDraft() async {
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final response = await ApiService.createGroup(token, 'Новая группа');
+    if (response.statusCode != 200 || !mounted) return;
+    final group = Group.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    setState(() {
+      _groups.add(group);
+      _changed = true;
+    });
+    _startEdit(group);
   }
 
-  void _reorder(int oldIndex, int newIndex) {
+  Future<void> _reorder(int oldIndex, int newIndex) async {
     setState(() {
       if (newIndex > oldIndex) newIndex -= 1;
-      final item = _groups.removeAt(oldIndex);
-      _groups.insert(newIndex, item);
+      final reorderable = _groups.where((g) => !g.isBase).toList();
+      final item = reorderable.removeAt(oldIndex);
+      reorderable.insert(newIndex, item);
+      final base = _groups.where((g) => g.isBase).toList();
+      _groups = [...base, ...reorderable];
+      _changed = true;
     });
+    final token = await ApiService.getToken();
+    if (token == null) return;
+    final ids = _groups.where((g) => !g.isBase).map((g) => g.id).toList();
+    await ApiService.reorderGroups(token, ids);
   }
 
   @override
   Widget build(BuildContext context) {
+    final baseGroups = _filtered.where((g) => g.isBase).toList();
+    final reorderableGroups = _filtered.where((g) => !g.isBase).toList();
+
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 31, 31, 31),
       body: SafeArea(
@@ -303,7 +525,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             child: Row(children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(_groups),
+                onPressed: () => Navigator.of(context).pop(_changed),
               ),
               const Text('Настройка групп', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
             ]),
@@ -325,29 +547,40 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const _BaseGroupCard(),
-          Expanded(
-            child: ReorderableListView.builder(
-              buildDefaultDragHandles: false,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _filtered.length,
-              onReorder: _reorder,
-              itemBuilder: (context, index) {
-                final g = _filtered[index];
-                final editing = _editingId == g.id;
-                return _GroupCard(
-                  key: ValueKey(g.id),
-                  index: index,
-                  group: g,
-                  editing: editing,
-                  controller: _editControllers[g.id],
-                  onEdit: () => _startEdit(g),
-                  onConfirm: () => _confirmEdit(g),
-                  onDelete: () => _confirmDelete(g),
-                );
-              },
-            ),
-          ),
+          if (_loading)
+            const Expanded(child: Center(child: LoadingIndicator()))
+          else if (_error != null)
+            Expanded(child: Center(child: Text('Ошибка: $_error', style: const TextStyle(color: Colors.white))))
+          else ...[
+              for (final g in baseGroups)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: _GroupCard(group: g, isBase: true),
+                ),
+              Expanded(
+                child: ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: reorderableGroups.length,
+                  onReorder: _reorder,
+                  itemBuilder: (context, index) {
+                    final g = reorderableGroups[index];
+                    final editing = _editingGroupId == g.id;
+                    return _GroupCard(
+                      key: ValueKey(g.id),
+                      index: index,
+                      group: g,
+                      isBase: false,
+                      editing: editing,
+                      controller: _editControllers[g.id],
+                      onEdit: () => _startEdit(g),
+                      onConfirm: () => _confirmEdit(g),
+                      onDelete: () => _confirmDelete(g),
+                    );
+                  },
+                ),
+              ),
+            ],
           Padding(
             padding: const EdgeInsets.all(12),
             child: SizedBox(
@@ -365,40 +598,26 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 }
 
-class _BaseGroupCard extends StatelessWidget {
-  const _BaseGroupCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(color: const Color.fromARGB(255, 40, 40, 40), borderRadius: BorderRadius.circular(8)),
-        child: const Text('База', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-      ),
-    );
-  }
-}
-
 class _GroupCard extends StatelessWidget {
   final int index;
-  final SubGroup group;
+  final Group group;
+  final bool isBase;
   final bool editing;
   final TextEditingController? controller;
-  final VoidCallback onEdit;
-  final VoidCallback onConfirm;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onDelete;
 
   const _GroupCard({
     super.key,
-    required this.index,
+    this.index = 0,
     required this.group,
-    required this.editing,
-    required this.controller,
-    required this.onEdit,
-    required this.onConfirm,
-    required this.onDelete,
+    required this.isBase,
+    this.editing = false,
+    this.controller,
+    this.onEdit,
+    this.onConfirm,
+    this.onDelete,
   });
 
   @override
@@ -409,11 +628,13 @@ class _GroupCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(color: const Color.fromARGB(255, 40, 40, 40), borderRadius: BorderRadius.circular(8)),
         child: Row(children: [
-          ReorderableDragStartListener(
-            index: index,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.drag_handle, color: Colors.white54),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: isBase
+                ? const Icon(Icons.lock, color: Colors.white54)
+                : ReorderableDragStartListener(
+              index: index,
+              child: const Icon(Icons.drag_handle, color: Colors.white54),
             ),
           ),
           Expanded(
@@ -426,15 +647,16 @@ class _GroupCard extends StatelessWidget {
             )
                 : Text(group.name, style: const TextStyle(color: Colors.white, fontSize: 16)),
           ),
-          IconButton(
-            icon: Icon(editing ? Icons.check : Icons.edit, color: editing ? Colors.green : Colors.white70),
-            onPressed: editing ? onConfirm : onEdit,
-          ),
-          if (!group.isDraft)
+          if (!isBase) ...[
+            IconButton(
+              icon: Icon(editing ? Icons.check : Icons.edit, color: editing ? Colors.green : Colors.white70),
+              onPressed: editing ? onConfirm : onEdit,
+            ),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.white70),
               onPressed: onDelete,
             ),
+          ],
         ]),
       ),
     );

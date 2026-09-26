@@ -30,6 +30,7 @@ class _CropScreenState extends State<CropScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Результат обрезки меньше ${_kMinCropSide}x$_kMinCropSide px — увеличьте область выделения')),
       );
+      if (mounted) Navigator.of(context).pop(croppedImage);
       return;
     }
     if (w > _kMaxCropSide || h > _kMaxCropSide) {
@@ -80,6 +81,7 @@ class _CropScreenState extends State<CropScreen> {
         key: _cropKey,
         controller: _controller,
         image: widget.imageBytes,
+        initialRectBuilder: InitialRectBuilder.withBuilder((viewportRect, imageRect) => imageRect),
         baseColor: const Color.fromARGB(255, 31, 31, 31),
         maskColor: Colors.black.withValues(alpha: 0.6),
         onCropped: (result) {

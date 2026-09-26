@@ -9,7 +9,11 @@ class InfoChip extends StatelessWidget {
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.symmetric(
+          horizontal: 2,
+          vertical: 2,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.grey[800],
           borderRadius: BorderRadius.circular(16),
@@ -17,7 +21,7 @@ class InfoChip extends StatelessWidget {
         child: Text(
           label,
           softWrap: true,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: const TextStyle(color: Colors.white, fontSize: 11),
         ),
       ),
     );

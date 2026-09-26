@@ -5,9 +5,11 @@ class GalleryImage {
   final int? id;
   final String? url;
   final File? localFile;
+  bool uploading;
+  bool deleting;
 
-  const GalleryImage.server({required this.id, required this.url}) : localFile = null;
-  const GalleryImage.local(File file) : localFile = file, id = null, url = null;
+  GalleryImage.server({required this.id, required this.url, this.uploading = false, this.deleting = false}) : localFile = null;
+  GalleryImage.local(File file, {this.uploading = false, this.deleting = false}) : localFile = file, id = null, url = null;
 
   String get _key => id?.toString() ?? localFile!.path;
 }
@@ -44,7 +46,13 @@ class ImageGalleryPicker extends StatelessWidget {
         },
         children: [
           for (var i = 0; i < images.length; i++)
-            ReorderableDragStartListener(
+            images[i].uploading || images[i].deleting
+                ? Padding(
+              key: ValueKey(images[i]._key),
+              padding: const EdgeInsets.only(right: 8),
+              child: _Thumb(image: images[i], onDelete: () {}),
+            )
+                : ReorderableDragStartListener(
               key: ValueKey(images[i]._key),
               index: i,
               child: Padding(
@@ -82,18 +90,26 @@ class _Thumb extends StatelessWidget {
             ? Image.file(image.localFile!, fit: BoxFit.cover)
             : Image.network(image.url!, fit: BoxFit.cover, errorBuilder: (c, e, st) => const Icon(Icons.broken_image, color: Colors.grey)),
       ),
-      Positioned(
-        top: 2,
-        right: 2,
-        child: InkWell(
-          onTap: onDelete,
+      if (image.uploading || image.deleting)
+        Positioned.fill(
           child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
-            child: const Icon(Icons.close, color: Colors.white, size: 16),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.black54),
+            child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
+          ),
+        )
+      else
+        Positioned(
+          top: 2,
+          right: 2,
+          child: InkWell(
+            onTap: onDelete,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.black87, shape: BoxShape.circle),
+              child: const Icon(Icons.close, color: Colors.white, size: 16),
+            ),
           ),
         ),
-      ),
     ]);
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../controllers/items_update_notifier.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_indicator.dart';
 import '../widgets/damage_display.dart';
@@ -7,16 +9,18 @@ import '../widgets/ammo_card.dart';
 import '../utils/price_formatter.dart';
 import 'edit_item_screen.dart';
 import '../widgets/item_image.dart';
-import '../widgets/item_card.dart' show rarityColors, varyingRarityGradient;
+import '../widgets/item_card.dart' show rarityColors, RarityShimmerText;
 import '../widgets/fullscreen_gallery.dart';
+import '../controllers/auth.dart';
+import 'subscription.dart' show GroupSettingsScreen;
+import 'user_profile.dart';
 
 class ItemDetailPage extends StatefulWidget {
   final int itemId;
   final String? initialName;
   final String? initialImageUrl;
-  final bool isOwner;
 
-  const ItemDetailPage({super.key, required this.itemId, this.initialName, this.initialImageUrl, this.isOwner = false});
+  const ItemDetailPage({super.key, required this.itemId, this.initialName, this.initialImageUrl});
 
   @override
   State<ItemDetailPage> createState() => _ItemDetailPageState();
@@ -99,6 +103,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     if (token == null) return;
     final response = await ApiService.deleteItem(token, widget.itemId);
     if (response.statusCode == 200 && mounted) {
+      context.read<ItemsUpdateNotifier>().notifyItemsChanged();
       Navigator.pop(context, true);
     }
   }
@@ -131,12 +136,16 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final auth = context.watch<AuthController>();
+    final authors = (data?['authors'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    final isOwner = auth.isAuthenticated &&
+        (authors.any((a) => a['id'].toString() == auth.userProfile['id']) || auth.isStaff);
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: widget.isOwner
+        actions: isOwner
             ? [
           IconButton(icon: const Icon(Icons.edit), onPressed: _openEdit),
           IconButton(icon: const Icon(Icons.delete), onPressed: _confirmDelete),
@@ -159,6 +168,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     final description = d['description'] as String? ?? '';
     final rarity = d['rarity'] as String?;
     final weight = d['weight']?.toString();
+    final authors = (d['authors'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? []; // НОВОЕ
+    final auth = context.watch<AuthController>();
     final specialTypes = (d['special_types'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
     final weaponClasses = (d['weapon_classes'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
     final weaponTypes = (d['weapon_types'] as List<dynamic>?)?.map((e) => e['name'] as String? ?? '').where((s) => s.isNotEmpty).toList() ?? [];
@@ -182,8 +193,16 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         Padding(
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white)),
-            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white)),
+                ),
+                if (auth.isAuthenticated) _AddToGroupButton(itemId: widget.itemId), // ИЗМЕНЕНО: теперь в Row рядом с именем
+              ],
+            ),
+            _AuthorsRow(authors: authors),
             _keyValueRow('Цена:', Text(price.asPrice, style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.w700))),
             const SizedBox(height: 8),
             Text('Описание', style: theme.textTheme.labelSmall),
@@ -196,13 +215,17 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: specialTypes.map((s) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 44, 44, 46),
-                      borderRadius: BorderRadius.circular(16),
+                  children: specialTypes.map((s) => InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.pop(context, {'filterSpecialType': s}),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 44, 44, 46),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text('#$s', style: const TextStyle(color: Color(0xFFD9D9D9), fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
-                    child: Text('#$s', style: const TextStyle(color: Color(0xFFD9D9D9), fontSize: 13, fontWeight: FontWeight.w600)),
                   )).toList(),
                 ),
               ),
@@ -343,7 +366,7 @@ class _ImageGallery extends StatelessWidget {
                   )),
                   child: Hero(
                     tag: 'item_image_$url',
-                    child: Image.network(url, fit: BoxFit.fill, alignment: Alignment.center, errorBuilder: (c, e, st) => const ItemImage(url: null, fit: BoxFit.fill)),
+                    child: Image.network(url, fit: BoxFit.cover, alignment: Alignment.topCenter, errorBuilder: (c, e, st) => const ItemImage(url: null, fit: BoxFit.fill)),
                   ),
                 ),
             ],
@@ -387,14 +410,173 @@ class _RarityText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (rarity == 'Редкость варьируется') {
-      return ShaderMask(
-        shaderCallback: (b) => const LinearGradient(colors: varyingRarityGradient).createShader(b),
-        child: Text(rarity, style: style?.copyWith(color: Colors.white)),
-      );
+      return RarityShimmerText(rarity, style: style);
     }
     return Text(rarity, style: style?.copyWith(color: rarityColors[rarity] ?? Colors.white));
   }
 }
 
+class _AuthorsRow extends StatelessWidget {
+  final List<Map<String, dynamic>> authors;
+  const _AuthorsRow({required this.authors});
 
+  @override
+  Widget build(BuildContext context) {
+    if (authors.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < authors.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _AuthorChip(author: authors[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
+class _AuthorChip extends StatelessWidget {
+  final Map<String, dynamic> author;
+  const _AuthorChip({required this.author});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = author['name'] as String? ?? '';
+    final img = author['img'] as String?;
+    final worksCount = author['works_count']?.toString() ?? '0';
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserProfileScreen(userId: author['id'] as int)),
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Row(children: [
+        ClipOval(child: SizedBox(width: 60, height: 60, child: ItemImage(url: img))),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+              Text('$worksCount работ', style: const TextStyle(color: Colors.white54, fontSize: 14)),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _GroupEntry {
+  final int id;
+  final String name;
+  final bool alreadyAdded;
+  _GroupEntry({required this.id, required this.name, required this.alreadyAdded});
+  factory _GroupEntry.fromJson(Map<String, dynamic> json) => _GroupEntry(
+        id: json['id'] as int,
+        name: json['name'] as String,
+        alreadyAdded: json['already_added'] as bool? ?? false,
+      );
+}
+
+class _AddToGroupButton extends StatefulWidget {
+  final int itemId;
+  const _AddToGroupButton({required this.itemId});
+
+  @override
+  State<_AddToGroupButton> createState() => _AddToGroupButtonState();
+
+}
+
+class _AddToGroupButtonState extends State<_AddToGroupButton> {
+  Future<void> _open() async {
+    final token = await ApiService.getToken();
+    if (token == null || !mounted) return;
+
+    List<_GroupEntry> groups;
+    try {
+      final response = await ApiService.getMyGroups(token, itemId: widget.itemId);
+      if (response.statusCode != 200) throw Exception();
+      final data = jsonDecode(response.body) as List<dynamic>;
+      groups = data.map((g) => _GroupEntry.fromJson(g as Map<String, dynamic>)).toList();
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось загрузить группы')));
+      return;
+    }
+    if (!mounted) return;
+
+    if (groups.isEmpty) {
+      final goCreate = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+          title: const Text('У вас пока нет групп', style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Отмена')),
+            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Создать группу')),
+          ],
+        ),
+      );
+      if (goCreate == true && mounted) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupSettingsScreen()));
+      }
+      return;
+    }
+
+    // ИЗМЕНЕНО: selected теперь стартует с уже добавленных групп, а не пустой
+    final selected = groups.where((g) => g.alreadyAdded).map((g) => g.id).toSet();
+    final initiallyAdded = Set<int>.from(selected); // НОВОЕ: снимок исходного состояния для вычисления диффа
+
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => StatefulBuilder(builder: (ctx, setStateDialog) {
+        return AlertDialog(
+          backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+          title: const Text('Добавить в группу', style: TextStyle(color: Colors.white)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: groups.map((g) => CheckboxListTile(
+                value: selected.contains(g.id), // ИЗМЕНЕНО: g.alreadyAdded больше не форсит true напрямую
+                title: Text(g.name, style: const TextStyle(color: Colors.white)),
+                onChanged: (v) => setStateDialog(() => v == true ? selected.add(g.id) : selected.remove(g.id)), // ИЗМЕНЕНО: чекбокс кликабелен всегда
+                activeColor: Colors.blueAccent,
+                controlAffinity: ListTileControlAffinity.leading,
+              )).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dctx).pop(), child: const Text('Отмена')),
+            ElevatedButton(
+              onPressed: () async { // ИЗМЕНЕНО: убрана проверка selected.isEmpty — теперь можно только снимать
+                final toAdd = selected.difference(initiallyAdded).toList();
+                final toRemove = initiallyAdded.difference(selected).toList();
+                if (toAdd.isNotEmpty) {
+                  await ApiService.addItemToGroups(token, widget.itemId, toAdd);
+                }
+                for (final groupId in toRemove) {
+                  await ApiService.removeGroupItem(token, groupId, widget.itemId);
+                }
+                if (dctx.mounted) Navigator.of(dctx).pop();
+              },
+              child: const Text('Сохранить'), // ИЗМЕНЕНО: "Добавить" -> "Сохранить", т.к. теперь и снимает тоже
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: _open,
+      icon: const Icon(Icons.playlist_add, color: Colors.white, size: 30), // ИЗМЕНЕНО: только иконка, крупнее
+      tooltip: 'Добавить в группу',
+    );
+  }
+}

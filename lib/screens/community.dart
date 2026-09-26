@@ -4,13 +4,12 @@ import 'item_detail.dart';
 import '../services/api_service.dart';
 import '../controllers/lookups.dart';
 import '../widgets/loading_indicator.dart';
-import '../widgets/info_chip.dart';
 import '../widgets/filters_sheet.dart';
 import '../widgets/item_card.dart';
 import '../widgets/tab_switcher.dart';
-import '../utils/price_formatter.dart';
 import 'dart:convert';
 import 'create_item_screen.dart';
+import '../controllers/items_update_notifier.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -74,12 +73,11 @@ class MyItem {
 }
 
 const Map<int, Color> statusColors = {
-  3: Color(0xFFF8D7DA),
-  2: Color(0xFFD4EDDA),
-  1: Color(0xFFFFF3CD),
-  0: Color(0xFFD1ECF1),
+  3: Colors.red,
+  2: Colors.green,
+  1: Colors.orange,
+  0: Colors.lightBlue,
 };
-
 const Map<int, String> statusLabels = {
   3: 'Удалён',
   2: 'Опубликован',
@@ -246,8 +244,10 @@ Future<Map<String, dynamic>> fetchItemsSearch(
   }
 }
 
+
 class _CommunityScreenState extends State<CommunityScreen> {
   late ScrollController _scrollController;
+  late final ItemsUpdateNotifier _itemsUpdateNotifier;
   final TextEditingController _searchController = TextEditingController();
 
   int _tab = 0;
@@ -288,6 +288,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _lookupTypes = lookups.types;
     _lookupProperties = lookups.properties;
     _myScrollController = ScrollController()..addListener(_onMyScroll);
+    _itemsUpdateNotifier = context.read<ItemsUpdateNotifier>();
+    _itemsUpdateNotifier.addListener(_onItemsChanged);
   }
 
   @override
@@ -297,6 +299,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     _priceFromController.dispose();
     _priceToController.dispose();
     _myScrollController.dispose();
+    _itemsUpdateNotifier.removeListener(_onItemsChanged);
     super.dispose();
   }
 
@@ -319,11 +322,33 @@ class _CommunityScreenState extends State<CommunityScreen> {
     await _applyFilters(searchQuery: _isSearching ? _searchController.text : null, page: 1, append: false);
   }
 
+  void _onItemsChanged() {
+    _loadItems();
+    if (_tab == 1) _loadMyItems();
+  }
+
   void _onMyScroll() {
     if (_myScrollController.position.pixels >= _myScrollController.position.maxScrollExtent - 500) {
       if (!_myIsLoading && _myCurrentPage < _myTotalPages) {
         _loadMoreMyItems();
       }
+    }
+  }
+
+  void _handleDetailResult(dynamic result) { // НОВОЕ
+    if (result is Map && result['filterSpecialType'] != null) {
+      final name = result['filterSpecialType'] as String;
+      setState(() {
+        _tab = 0;
+        _filterTypes.clear();
+        _filterRarities.clear();
+        _priceFromController.clear();
+        _priceToController.clear();
+        _filterProperties
+          ..clear()
+          ..add(name);
+      });
+      _applyFilters();
     }
   }
 
@@ -377,11 +402,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _openCreateItem() async {
-    final result = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const CreateItemScreen()),
     );
-    if (result == true) _loadMyItems();
   }
 
   void _switchTab(int tab) {
@@ -613,16 +637,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
         return PublicItemCard(
           item: item,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ItemDetailPage(
-                itemId: item.id,
-                initialName: item.name,
-                initialImageUrl: item.icon ?? 'https://poe2-biblioteka.ru/Predmeti/Battlestaves/warstaff_2.webp',
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ItemDetailPage(
+                  itemId: item.id,
+                  initialName: item.name,
+                  initialImageUrl: item.icon,
+                ),
               ),
-            ),
-          ),
+            );
+            _handleDetailResult(result);
+          },
         );
       },
     );
@@ -646,18 +673,17 @@ class _CommunityScreenState extends State<CommunityScreen> {
         return MyItemCard(
           item: item,
           onTap: () async {
-            final result = await Navigator.push<bool>(
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ItemDetailPage(
                   itemId: item.id,
                   initialName: item.name,
                   initialImageUrl: item.icon,
-                  isOwner: true,
                 ),
               ),
             );
-            if (result == true) _loadMyItems();
+            _handleDetailResult(result);
           },
         );
       },

@@ -5,8 +5,9 @@ import 'controllers/auth.dart';
 import 'controllers/lookups.dart';
 import 'screens/community.dart' show CommunityScreen;
 import 'screens/subscription.dart' show SubscriptionScreen;
-import 'screens/profile.dart' show Item, fetchItemsPage, fetchItemsSearch, fetchLookups, ProfileTab;
+import 'screens/profile.dart' show ProfileTab;
 import 'package:google_fonts/google_fonts.dart';
+import 'controllers/items_update_notifier.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
         providers: [
           ChangeNotifierProvider(create: (_) => AuthController()),
           ChangeNotifierProvider(create: (_) => LookupsController()),
+          ChangeNotifierProvider(create: (_) => ItemsUpdateNotifier()),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -146,7 +148,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
 
     return Scaffold(
       bottomNavigationBar: BottomNavigationBar(

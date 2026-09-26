@@ -149,7 +149,6 @@ class _ProfileTabState extends State<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final auth = context.watch<AuthController>();
 
     if (!auth.isAuthenticated) {
@@ -170,8 +169,6 @@ class _ProfileTabState extends State<ProfileTab> {
         )
       ]);
     }
-
-    final userProfile = auth.userProfile;
 
     return SingleChildScrollView(
       child: Center(

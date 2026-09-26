@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import '../controllers/items_update_notifier.dart';
 import '../services/api_service.dart';
 import '../controllers/lookups.dart';
 import '../widgets/weapon_fields_section.dart';
@@ -28,6 +27,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
   late final TextEditingController _priceController;
   late final TextEditingController _weightController;
   List<Item> _selectedAmmo = [];
+
+  bool _changed = false;
   final List<GalleryImage> _galleryImages = [];
   int? _rarityId;
   bool _saving = false;
@@ -174,6 +175,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
         if (imageIds.isNotEmpty) {
           await ApiService.reorderItemImages(token, widget.itemId, imageIds);
         }
+        context.read<ItemsUpdateNotifier>().notifyItemsChanged();
         if (mounted) Navigator.pop(context, true);
       } else {
         final resp = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -199,14 +201,28 @@ class _EditItemScreenState extends State<EditItemScreen> {
     if (_galleryImages.length >= 5) return;
     final file = await pickAndCropImage(context);
     if (file == null) return;
+
+    final placeholder = GalleryImage.local(file, uploading: true);
+    setState(() => _galleryImages.add(placeholder));
+
     final token = await ApiService.getToken();
-    if (token == null) return;
+    if (token == null) {
+      if (mounted) setState(() => _galleryImages.remove(placeholder));
+      return;
+    }
+
     final response = await ApiService.uploadItemImage(token, widget.itemId, file);
-    if (response.statusCode == 200 && mounted) {
+    if (!mounted) return;
+
+    if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      setState(() => _galleryImages.add(GalleryImage.server(id: data['id'] as int, url: data['url'] as String)));
-    } else if (mounted) {
+      setState(() {
+        final idx = _galleryImages.indexOf(placeholder);
+        if (idx != -1) _galleryImages[idx] = GalleryImage.server(id: data['id'] as int, url: data['url'] as String);
+      });
+    } else {
       final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      setState(() => _galleryImages.remove(placeholder));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data?['detail']?.toString() ?? 'Ошибка загрузки')));
     }
   }
@@ -221,11 +237,22 @@ class _EditItemScreenState extends State<EditItemScreen> {
 
   Future<void> _removeImage(GalleryImage img) async {
     if (img.id == null) return;
+    setState(() => img.deleting = true);
     final token = await ApiService.getToken();
-    if (token == null) return;
+    if (token == null) {
+      setState(() => img.deleting = false);
+      return;
+    }
     final response = await ApiService.deleteItemImage(token, widget.itemId, img.id!);
-    if (response.statusCode == 200 && mounted) {
-      setState(() => _galleryImages.remove(img));
+    if (!mounted) return;
+    if (response.statusCode == 200) {
+      setState(() {
+        _galleryImages.remove(img);
+        _changed = true;
+      });
+    } else {
+      setState(() => img.deleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось удалить изображение')));
     }
   }
 
@@ -233,104 +260,112 @@ class _EditItemScreenState extends State<EditItemScreen> {
   Widget build(BuildContext context) {
     final lookups = context.watch<LookupsController>();
     final rarities = lookups.rarities;
+    final anyImageBusy = _galleryImages.any((i) => i.uploading || i.deleting);
 
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 31, 31, 31),
-      appBar: AppBar(
-        title: const Text('Редактирование'),
-        backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            ImageGalleryPicker(images: _galleryImages, onAdd: _pickImage, onRemove: _removeImage, onReorder: _reorderImages),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _nameController,
-              style: _textStyle,
-              decoration: _decoration('Название *'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _descriptionController,
-              style: _textStyle,
-              maxLines: 3,
-              decoration: _decoration('Описание'),
-            ),
-            const SizedBox(height: 12),
-            InputDecorator(
-              decoration: _decoration('Тип предмета'),
-              child: Text(_typeName, style: const TextStyle(color: Colors.white54)),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _rarityId,
-              decoration: _decoration('Редкость *'),
-              dropdownColor: const Color.fromRGBO(37, 37, 39, 1.0),
-              style: _textStyle,
-              items: rarities
-                  .map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text(r['name'] as String? ?? '')))
-                  .toList(),
-              onChanged: (v) => setState(() => _rarityId = v),
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _priceController,
-                  style: _textStyle,
-                  keyboardType: TextInputType.number,
-                  decoration: _decoration('Цена (мед.)'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
-                ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _changed);
+      },
+      child: Scaffold(
+        backgroundColor: const Color.fromARGB(255, 31, 31, 31),
+        appBar: AppBar(
+          title: const Text('Редактирование'),
+          backgroundColor: const Color.fromRGBO(37, 37, 39, 1.0),
+        ),
+        body: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ImageGalleryPicker(images: _galleryImages, onAdd: _pickImage, onRemove: _removeImage, onReorder: _reorderImages),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                style: _textStyle,
+                decoration: _decoration('Название *'),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _weightController,
-                  style: _textStyle,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: _decoration('Вес'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                style: _textStyle,
+                maxLines: 3,
+                decoration: _decoration('Описание'),
+              ),
+              const SizedBox(height: 12),
+              InputDecorator(
+                decoration: _decoration('Тип предмета'),
+                child: Text(_typeName, style: const TextStyle(color: Colors.white54)),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: _rarityId,
+                decoration: _decoration('Редкость *'),
+                dropdownColor: const Color.fromRGBO(37, 37, 39, 1.0),
+                style: _textStyle,
+                items: rarities
+                    .map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text(r['name'] as String? ?? '')))
+                    .toList(),
+                onChanged: (v) => setState(() => _rarityId = v),
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _priceController,
+                    style: _textStyle,
+                    keyboardType: TextInputType.number,
+                    decoration: _decoration('Цена (мед.)'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _weightController,
+                    style: _textStyle,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: _decoration('Вес'),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Обязательное поле' : null,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              if (_isWeapon)
+                WeaponFieldsSection(
+                  allSpecialTypes: lookups.properties,
+                  selectedSpecialTypes: _weaponSpecialTypes,
+                  onSpecialTypesChanged: (s) => setState(() { _weaponSpecialTypes..clear()..addAll(s); }),
+                  oneHandedRows: _oneHandedRows,
+                  twoHandedRows: _twoHandedRows,
+                  damageTypes: lookups.damageTypes,
+                  diceOptions: lookups.dice,
+                  onOneHandedAddRow: () => setState(() => _oneHandedRows.add(DamageRowData())),
+                  onOneHandedRemoveRow: (i) => setState(() => _oneHandedRows.removeAt(i)),
+                  onTwoHandedAddRow: () => setState(() => _twoHandedRows.add(DamageRowData())),
+                  onTwoHandedRemoveRow: (i) => setState(() => _twoHandedRows.removeAt(i)),
+                  onDamageChanged: () => setState(() {}),
+                  selectedAmmo: _selectedAmmo,
+                  onAmmoChanged: (items) => setState(() => _selectedAmmo = items),
+                ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (_saving || anyImageBusy) ? null : _save,
+                  child: _saving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Сохранить'),
                 ),
               ),
             ]),
-            const SizedBox(height: 12),
-            if (_isWeapon)
-              WeaponFieldsSection(
-                allSpecialTypes: lookups.properties,
-                selectedSpecialTypes: _weaponSpecialTypes,
-                onSpecialTypesChanged: (s) => setState(() { _weaponSpecialTypes..clear()..addAll(s); }),
-                oneHandedRows: _oneHandedRows,
-                twoHandedRows: _twoHandedRows,
-                damageTypes: lookups.damageTypes,
-                diceOptions: lookups.dice,
-                onOneHandedAddRow: () => setState(() => _oneHandedRows.add(DamageRowData())),
-                onOneHandedRemoveRow: (i) => setState(() => _oneHandedRows.removeAt(i)),
-                onTwoHandedAddRow: () => setState(() => _twoHandedRows.add(DamageRowData())),
-                onTwoHandedRemoveRow: (i) => setState(() => _twoHandedRows.removeAt(i)),
-                onDamageChanged: () => setState(() {}),
-                selectedAmmo: _selectedAmmo,
-                onAmmoChanged: (items) => setState(() => _selectedAmmo = items),
-              ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.redAccent)),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Сохранить'),
-              ),
-            ),
-          ]),
+          ),
         ),
       ),
     );

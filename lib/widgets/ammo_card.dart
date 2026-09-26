@@ -23,7 +23,7 @@ class AmmoCard extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            child: ItemImage(url: icon),
+            child: ClipRRect(borderRadius: BorderRadius.circular(8), child: ItemImage(url: icon)),
           ),
           const SizedBox(width: 8),
           Expanded(
